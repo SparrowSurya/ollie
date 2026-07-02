@@ -50,8 +50,19 @@ export default function ChatView({
     }
   }, [messages]);
 
+  if (isBootstrapping) {
+    return (
+      <div className="flex-1 flex flex-col justify-center items-center w-full h-full select-none">
+        <span className="loading loading-dots loading-md text-user-accent mb-2"></span>
+        <span className="text-sm font-light italic text-base-content/60">
+          Loading the model...
+        </span>
+      </div>
+    );
+  }
+
   // If bootstrapping is active, we don't show the welcome empty state greeting
-  const isEmpty = messages.length === 0 && !isBootstrapping;
+  const isEmpty = messages.length === 0;
 
   return (
     <div className="flex flex-col h-full w-full justify-between bg-transparent">
