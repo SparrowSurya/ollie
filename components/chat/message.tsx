@@ -4,13 +4,33 @@ import { MessageRole } from "./types";
 export interface ChatMessageProps {
   role: MessageRole;
   content: string;
+  pendingStatus?: "loading" | "generating";
 }
 
 export default function ChatMessage({
   role,
   content,
+  pendingStatus,
 }: Readonly<ChatMessageProps>) {
   const isUser = role === "user";
+
+  if (pendingStatus === "loading") {
+    return (
+      <div className="flex justify-start w-full my-4 font-sans text-base-content/50 max-w-full items-center gap-2 select-none animate-pulse">
+        <span className="loading loading-dots loading-sm text-user-accent"></span>
+        <span className="text-sm font-light italic">Loading the model...</span>
+      </div>
+    );
+  }
+
+  if (pendingStatus === "generating") {
+    return (
+      <div className="flex justify-start w-full my-4 font-sans text-base-content/50 max-w-full items-center gap-2 select-none animate-pulse">
+        <span className="loading loading-ring loading-sm text-user-accent"></span>
+        <span className="text-sm font-light italic">Generating...</span>
+      </div>
+    );
+  }
 
   if (isUser) {
     return (

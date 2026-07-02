@@ -10,12 +10,14 @@ export interface ChatViewProps {
   messages: ChatUiMessage[];
   onSend: (text: string) => void;
   isGenerating?: boolean;
+  isBootstrapping?: boolean;
 }
 
 export default function ChatView({
   messages,
   onSend,
   isGenerating = false,
+  isBootstrapping = false,
 }: Readonly<ChatViewProps>) {
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
 
@@ -24,14 +26,14 @@ export default function ChatView({
     const container = scrollContainerRef.current;
     if (!container) return;
 
-    // Use smooth scroll behavior
     container.scrollTo({
       top: container.scrollHeight,
       behavior: "smooth",
     });
   }, [messages]);
 
-  const isEmpty = messages.length === 0;
+  // If bootstrapping is active, we don't show the welcome empty state greeting
+  const isEmpty = messages.length === 0 && !isBootstrapping;
 
   return (
     <div className="flex flex-col h-full w-full max-w-3xl mx-auto px-4 justify-between bg-transparent">
@@ -50,10 +52,17 @@ export default function ChatView({
             ref={scrollContainerRef}
             className="flex-1 overflow-y-auto min-h-0 no-scrollbar pr-1"
           >
-            <MessageView messages={messages} />
+            <MessageView
+              messages={messages}
+              isGenerating={isGenerating}
+              isBootstrapping={isBootstrapping}
+            />
           </div>
           <div className="py-4 bg-transparent shrink-0">
-            <ChatInput onSend={onSend} disabled={isGenerating} />
+            <ChatInput
+              onSend={onSend}
+              disabled={isGenerating || isBootstrapping}
+            />
           </div>
         </div>
       )}
