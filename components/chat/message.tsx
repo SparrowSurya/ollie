@@ -1,5 +1,6 @@
 import React from "react";
 import { MessageRole } from "./types";
+import { parseMarkdown } from "@/lib/markdown";
 
 export interface ChatMessageProps {
   role: MessageRole;
@@ -42,10 +43,13 @@ export default function ChatMessage({
     );
   }
 
-  // Assistant response is raw text flowing top-down on the left
+  // Assistant response is raw text flowing top-down on the left, compiled to HTML
   return (
     <div className="flex justify-start w-full my-4 font-sans text-base leading-relaxed text-base-content max-w-full">
-      <div className="whitespace-pre-wrap w-full select-text">{content}</div>
+      <div 
+        className="markdown-content w-full select-text"
+        dangerouslySetInnerHTML={{ __html: parseMarkdown(content) }}
+      />
     </div>
   );
 }
