@@ -54,11 +54,6 @@ export default function ChatMessage({
           className="mb-4 group border-l-2 border-base-content/15 pl-4 select-none w-full"
         >
           <summary className="cursor-pointer text-xs font-medium tracking-wide uppercase text-base-content/50 hover:text-base-content flex items-center gap-2 list-none outline-hidden">
-            <span
-              className={`inline-block w-1.5 h-1.5 rounded-full bg-user-accent ${
-                isStillThinking ? "animate-pulse" : ""
-              }`}
-            />
             {isStillThinking ? "Thinking Process..." : "Thought Process"}
             <span className="text-[10px] opacity-60 transition-transform group-open:rotate-90">
               ▶
