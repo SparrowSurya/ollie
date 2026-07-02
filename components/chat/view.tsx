@@ -20,26 +20,44 @@ export default function ChatView({
   isBootstrapping = false,
 }: Readonly<ChatViewProps>) {
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const isLockedRef = useRef<boolean>(true);
+
+  // Track user's manual scroll actions to toggle the auto-scroll lock
+  const handleScroll = () => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    // Lock auto-scroll only if the user is within 30px of the absolute bottom
+    const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 30;
+    isLockedRef.current = isAtBottom;
+  };
 
   // Auto-scroll to bottom of the message container when new messages arrive
   useEffect(() => {
     const container = scrollContainerRef.current;
     if (!container) return;
 
-    container.scrollTo({
-      top: container.scrollHeight,
-      behavior: "smooth",
-    });
+    const lastMessage = messages[messages.length - 1];
+    const isUserMsg = lastMessage?.role === "user";
+
+    // Unconditionally scroll to bottom on new user prompt
+    // For assistant stream chunks, only scroll if we are locked to the bottom
+    if (isUserMsg || isLockedRef.current) {
+      container.scrollTo({
+        top: container.scrollHeight,
+        behavior: "smooth",
+      });
+    }
   }, [messages]);
 
   // If bootstrapping is active, we don't show the welcome empty state greeting
   const isEmpty = messages.length === 0 && !isBootstrapping;
 
   return (
-    <div className="flex flex-col h-full w-full max-w-3xl mx-auto px-4 justify-between bg-transparent">
+    <div className="flex flex-col h-full w-full justify-between bg-transparent">
       {isEmpty ? (
         // Empty State: Greeting centered in viewport with input below it
-        <div className="flex-1 flex flex-col justify-center items-stretch w-full max-w-xl mx-auto px-2 select-none">
+        <div className="flex-1 flex flex-col justify-center items-stretch w-full max-w-xl mx-auto px-6 select-none">
           <ChatEmpty />
           <div className="w-full">
             <ChatInput onSend={onSend} disabled={isGenerating} />
@@ -47,18 +65,24 @@ export default function ChatView({
         </div>
       ) : (
         // Active Chat: Scrollable messages and sticky bottom input
-        <div className="flex-1 flex flex-col h-full min-h-0 justify-between">
+        <div className="flex-1 flex flex-col h-full min-h-0 justify-between w-full">
+          {/* Scrollable area spans full screen width to capture scroll events everywhere */}
           <div
             ref={scrollContainerRef}
-            className="flex-1 overflow-y-auto min-h-0 no-scrollbar pr-1"
+            onScroll={handleScroll}
+            className="flex-1 overflow-y-auto min-h-0 no-scrollbar w-full"
           >
-            <MessageView
-              messages={messages}
-              isGenerating={isGenerating}
-              isBootstrapping={isBootstrapping}
-            />
+            {/* Inner column keeps message content centered and readable */}
+            <div className="w-full max-w-3xl mx-auto px-4">
+              <MessageView
+                messages={messages}
+                isGenerating={isGenerating}
+                isBootstrapping={isBootstrapping}
+              />
+            </div>
           </div>
-          <div className="py-4 bg-transparent shrink-0">
+          {/* Bottom input section centered and aligned with message column */}
+          <div className="py-4 bg-transparent shrink-0 w-full max-w-3xl mx-auto px-4">
             <ChatInput
               onSend={onSend}
               disabled={isGenerating || isBootstrapping}
