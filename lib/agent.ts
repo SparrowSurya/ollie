@@ -10,6 +10,7 @@ const env = readEnv();
 const model = new ChatOllama({
   model: "gemma4:e2b",
   baseUrl: env.ollamaHost,
+  think: true,
 });
 
 // Node function: calls the model with the current messages state
@@ -30,7 +31,7 @@ const app = workflow.compile({ checkpointer: new MemorySaver() });
 /**
  * Bootstraps the local model by forcing Ollama to load its weights into memory.
  * This blocks until the model is fully loaded in VRAM/RAM.
- * 
+ *
  * @param threadId The unique chat session identifier
  * @returns Promise<boolean> True when loaded
  */
@@ -66,7 +67,7 @@ export async function bootstrapModel(threadId: string): Promise<boolean> {
 
 /**
  * Runs the compiled LangGraph workflow for the given threadId and streams the output tokens.
- * 
+ *
  * @param message The user's prompt message
  * @param threadId The session thread identifier for history retrieval
  * @returns ReadableStream of encoded string tokens
@@ -83,11 +84,31 @@ export function streamAgentResponse(message: string, threadId: string): Readable
           { version: "v2", configurable: { thread_id: threadId } }
         );
 
+        let hasStartedThinking = false;
+        let hasFinishedThinking = false;
+
         for await (const event of eventStream) {
           // Listen specifically to model streaming events
           if (event.event === "on_chat_model_stream") {
             const chunk = event.data.chunk;
-            if (chunk && typeof chunk.content === "string" && chunk.content) {
+
+            // Extract potential reasoning tokens from different versions of LangChain
+            const reasoning = chunk.additional_kwargs?.reasoning_content ||
+                              chunk.response_metadata?.reasoning_content ||
+                              chunk.reasoning_content;
+
+            if (reasoning && typeof reasoning === "string" && reasoning) {
+              if (!hasStartedThinking) {
+                controller.enqueue(encoder.encode("<think>\n"));
+                hasStartedThinking = true;
+              }
+              controller.enqueue(encoder.encode(reasoning));
+            } else if (chunk && typeof chunk.content === "string" && chunk.content) {
+              // If we were thinking but haven't written the closing tag, write it now
+              if (hasStartedThinking && !hasFinishedThinking) {
+                controller.enqueue(encoder.encode("\n</think>\n"));
+                hasFinishedThinking = true;
+              }
               controller.enqueue(encoder.encode(chunk.content));
             }
           }

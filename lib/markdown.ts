@@ -59,3 +59,55 @@ export function parseMarkdown(text: string): string {
     return text;
   }
 }
+
+export interface ParsedResponse {
+  thinkingHtml: string;
+  contentHtml: string;
+  isStillThinking: boolean;
+  hasThinking: boolean;
+}
+
+/**
+ * Splits raw LLM response into thinking and content segments, compiling both into HTML.
+ * 
+ * @param rawText The raw text output containing optional <think>...</think> tags
+ * @returns ParsedResponse containing compiled HTML parts, thinking state, and presence flag
+ */
+export function parseResponseParts(rawText: string): ParsedResponse {
+  if (!rawText) {
+    return { thinkingHtml: "", contentHtml: "", isStillThinking: false, hasThinking: false };
+  }
+
+  const trimmed = rawText.trim();
+  if (trimmed.startsWith("<think>")) {
+    const closeIndex = trimmed.indexOf("</think>");
+    if (closeIndex !== -1) {
+      // Thinking completed
+      const thinkingRaw = trimmed.slice(7, closeIndex).trim();
+      const contentRaw = trimmed.slice(closeIndex + 8).trim();
+      return {
+        thinkingHtml: parseMarkdown(thinkingRaw),
+        contentHtml: parseMarkdown(contentRaw),
+        isStillThinking: false,
+        hasThinking: true,
+      };
+    } else {
+      // Model is still streaming thought tokens
+      const thinkingRaw = trimmed.slice(7).trim();
+      return {
+        thinkingHtml: parseMarkdown(thinkingRaw),
+        contentHtml: "",
+        isStillThinking: true,
+        hasThinking: true,
+      };
+    }
+  }
+
+  // Standard response (no thinking tags)
+  return {
+    thinkingHtml: "",
+    contentHtml: parseMarkdown(rawText),
+    isStillThinking: false,
+    hasThinking: false,
+  };
+}

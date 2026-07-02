@@ -1,6 +1,6 @@
 import React from "react";
 import { MessageRole } from "./types";
-import { parseMarkdown } from "@/lib/markdown";
+import { parseResponseParts } from "@/lib/markdown";
 
 export interface ChatMessageProps {
   role: MessageRole;
@@ -43,13 +43,39 @@ export default function ChatMessage({
     );
   }
 
-  // Assistant response is raw text flowing top-down on the left, compiled to HTML
+  const { thinkingHtml, contentHtml, isStillThinking, hasThinking } = parseResponseParts(content);
+
+  // Assistant response is raw text flowing top-down on the left, displaying optional thinking process
   return (
-    <div className="flex justify-start w-full my-4 font-sans text-base leading-relaxed text-base-content max-w-full">
-      <div 
-        className="markdown-content w-full select-text"
-        dangerouslySetInnerHTML={{ __html: parseMarkdown(content) }}
-      />
+    <div className="flex flex-col justify-start w-full my-4 font-sans text-base leading-relaxed text-base-content max-w-full">
+      {hasThinking && (
+        <details
+          open={isStillThinking}
+          className="mb-4 group border-l-2 border-base-content/15 pl-4 select-none w-full"
+        >
+          <summary className="cursor-pointer text-xs font-medium tracking-wide uppercase text-base-content/50 hover:text-base-content flex items-center gap-2 list-none outline-hidden">
+            <span
+              className={`inline-block w-1.5 h-1.5 rounded-full bg-user-accent ${
+                isStillThinking ? "animate-pulse" : ""
+              }`}
+            />
+            {isStillThinking ? "Thinking Process..." : "Thought Process"}
+            <span className="text-[10px] opacity-60 transition-transform group-open:rotate-90">
+              ▶
+            </span>
+          </summary>
+          <div
+            className="markdown-content mt-2 text-sm italic text-base-content/70 select-text"
+            dangerouslySetInnerHTML={{ __html: thinkingHtml || "<p>Analyzing...</p>" }}
+          />
+        </details>
+      )}
+      {contentHtml && (
+        <div
+          className="markdown-content w-full select-text"
+          dangerouslySetInnerHTML={{ __html: contentHtml }}
+        />
+      )}
     </div>
   );
 }
