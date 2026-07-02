@@ -20,13 +20,8 @@ const generateMockStream = (
   onWord: (word: string) => void,
   onComplete: () => void
 ) => {
-  // Combine sentences, shuffle/split into words
   const allWords = mockSentences.join(" ").split(/\s+/);
-  
-  // Select a random slice size between 40 and 60
   const wordCount = Math.floor(Math.random() * 21) + 40;
-  
-  // Pick a random starting point in the word pool
   const startIndex = Math.floor(Math.random() * Math.max(1, allWords.length - wordCount));
   const selectedWords = allWords.slice(startIndex, startIndex + wordCount);
 
@@ -39,10 +34,10 @@ const generateMockStream = (
       clearInterval(intervalId);
       onComplete();
     }
-  }, 45); // Stream a word approximately every 45ms
+  }, 45);
 };
 
-export default function HomePage() {
+export default function ChatPage() {
   const [messages, setMessages] = useState<ChatUiMessage[]>([]);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
 
@@ -66,10 +61,8 @@ export default function HomePage() {
       timestamp: new Date(),
     };
 
-    // Append both the user message and the empty assistant placeholder to the list
     setMessages((prev) => [...prev, userMessage, assistantMessagePlaceholder]);
 
-    // Start streaming the mock response word-by-word
     generateMockStream(
       (word) => {
         setMessages((prev) =>
