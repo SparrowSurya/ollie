@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@catppuccin/daisyui": "^2.1.1",
+    "lucide-react": "^1.22.0",
     "next": "16.2.9",
     "ollama": "^0.6.3",
     "react": "19.2.4",
