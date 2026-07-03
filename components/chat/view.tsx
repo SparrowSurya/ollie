@@ -100,23 +100,23 @@ export default function ChatView({
     return (
       <div className="flex-1 flex flex-col justify-center items-center w-full h-full max-w-md mx-auto px-6 select-none animate-fade-in relative">
         <div className="bg-base-200 border border-base-content/10 rounded-2xl shadow-xl p-6 w-full flex flex-col gap-4 text-center">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-base-content/50">
+          <h3 className="text-lg font-bold uppercase tracking-wider text-base-content">
             Setup Chat Session
           </h3>
-          <p className="text-xs text-base-content/50 leading-relaxed">
+          <p className="text-sm text-base-content/80 leading-relaxed">
             Select an installed local model to load and start your conversation.
           </p>
 
           {/* Model Selection Dropdown */}
           <div className="flex flex-col text-left gap-1.5 mt-2">
-            <span className="text-[10px] font-bold uppercase tracking-wide text-base-content/40">
+            <span className="text-base font-bold uppercase tracking-wide text-base-content">
               Choose Model:
             </span>
             <select
               value={activeSelected}
               onChange={(e) => setSelectedModel(e.target.value)}
               disabled={runnableModels.length === 0}
-              className="select select-bordered select-xs sm:select-sm w-full bg-base-300 border-user-accent/30 focus:border-user-accent focus:ring-user-accent/30 focus:outline-hidden cursor-pointer"
+              className="select select-bordered select-sm w-full bg-base-300 border-user-accent/30 focus:border-user-accent focus:ring-user-accent/30 focus:outline-hidden cursor-pointer text-base h-9 px-3"
             >
               {runnableModels.length === 0 ? (
                 <option value="">No models installed</option>
@@ -132,12 +132,12 @@ export default function ChatView({
 
           {/* Set as Default Checkbox */}
           {runnableModels.length > 0 && (
-            <label className="flex items-center gap-2 cursor-pointer mt-1 text-xs text-base-content/60 select-none">
+            <label className="flex items-center gap-2 cursor-pointer mt-1 text-base font-medium text-base-content select-none">
               <input
                 type="checkbox"
                 checked={useAsDefault}
                 onChange={(e) => setUseAsDefault(e.target.checked)}
-                className="checkbox checkbox-xs border-user-accent checked:bg-user-accent checked:border-user-accent focus:ring-1 focus:ring-user-accent/30 focus:outline-hidden"
+                className="checkbox checkbox-sm border-user-accent checked:bg-user-accent checked:border-user-accent focus:ring-1 focus:ring-user-accent/30 focus:outline-hidden"
               />
               <span>Set as default model</span>
             </label>
@@ -147,13 +147,13 @@ export default function ChatView({
           <button
             onClick={handleLoadModel}
             disabled={runnableModels.length === 0}
-            className="btn btn-xs sm:btn-sm shrink-0 border-user-accent bg-user-accent hover:bg-user-accent/85 hover:border-user-accent/85 text-base-100 uppercase tracking-wider font-bold mt-2 cursor-pointer"
+            className="btn btn-sm shrink-0 border-user-accent bg-user-accent hover:bg-user-accent/85 hover:border-user-accent/85 text-base-100 uppercase tracking-wider font-bold mt-2 cursor-pointer text-base"
           >
             Load Model
           </button>
 
           {runnableModels.length === 0 && (
-            <p className="text-[10px] text-warning/80 leading-relaxed border border-warning/10 bg-warning/5 p-3 rounded-lg mt-1 select-text">
+            <p className="text-sm text-warning/80 leading-relaxed border border-warning/10 bg-warning/5 p-3 rounded-lg mt-1 select-text">
               Please click the settings icon in the top-right corner to pull a model first.
             </p>
           )}

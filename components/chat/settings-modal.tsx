@@ -140,11 +140,11 @@ export default function SettingsModal({ isOpen, onClose }: Readonly<SettingsModa
     >
       <div
         ref={modalRef}
-        className="bg-base-200 text-base-content rounded-2xl border border-base-content/10 w-full max-w-xl shadow-2xl p-5 overflow-hidden flex flex-col max-h-[90vh] select-none"
+        className="bg-base-200 text-base-content rounded-2xl border border-base-content/10 w-full max-w-xl shadow-2xl p-6 overflow-hidden flex flex-col max-h-[90vh] select-none"
       >
-        {/* Header: Title is always left-aligned with same margins, close button is on the right */}
-        <div className="flex items-center justify-between border-b border-base-content/10 pb-3 mb-4 shrink-0">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-base-content/50">
+        {/* Header: Title is always left-aligned, close button is on the right */}
+        <div className="flex items-center justify-between border-b border-base-content/10 pb-4 mb-5 shrink-0">
+          <h3 className="text-lg font-bold uppercase tracking-wider text-base-content">
             {activeTab === "apperence"
               ? "Appearance Settings"
               : activeTab === "model"
@@ -156,19 +156,19 @@ export default function SettingsModal({ isOpen, onClose }: Readonly<SettingsModa
             className="btn btn-sm btn-ghost btn-circle text-base-content/60 hover:text-base-content hover:bg-base-300"
             aria-label="Close settings"
           >
-            <X className="w-4 h-4" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Modal Body: Column flow on mobile, Row flow on desktop */}
-        <div className="flex flex-col md:flex-row gap-5 overflow-y-auto md:overflow-visible">
+        <div className="flex flex-col md:flex-row gap-6 overflow-y-auto md:overflow-visible">
           {/* Tabs Navigation: Horizontal scrollable on mobile, vertical sidebar on desktop */}
-          <div className="flex flex-row md:flex-col gap-1 overflow-x-auto md:overflow-visible pb-2 md:pb-0 border-b md:border-b-0 md:border-r border-base-content/10 pr-0 md:pr-4 shrink-0 justify-start md:justify-start w-full md:w-32 no-scrollbar">
+          <div className="flex flex-row md:flex-col gap-1.5 overflow-x-auto md:overflow-visible pb-3 md:pb-0 border-b md:border-b-0 md:border-r border-base-content/10 pr-0 md:pr-4 shrink-0 justify-start md:justify-start w-full md:w-36 no-scrollbar">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider transition-colors text-center md:text-left whitespace-nowrap cursor-pointer ${
+                className={`px-3 py-2 rounded-lg text-base font-semibold uppercase tracking-wider transition-colors text-center md:text-left whitespace-nowrap cursor-pointer ${
                   activeTab === tab.id
                     ? "bg-base-content/10 text-user-accent"
                     : "text-base-content/60 hover:bg-base-content/5"
@@ -180,18 +180,23 @@ export default function SettingsModal({ isOpen, onClose }: Readonly<SettingsModa
           </div>
 
           {/* Right Content Pane */}
-          <div className="flex-1 min-h-35 select-text">
+          <div className="flex-1 min-h-40 select-text">
             {activeTab === "apperence" && (
-              <div className="flex flex-col">
+              <div className="flex flex-col gap-1">
                 {/* Theme Selector Row */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 py-2 border-b border-base-content/5">
-                  <span className="text-xs font-bold uppercase tracking-wider text-base-content/60">
-                    Theme:
-                  </span>
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4 py-3 border-b border-base-content/5">
+                  <div className="flex flex-col text-left gap-0.5 max-w-xs">
+                    <span className="text-base font-bold uppercase tracking-wider text-base-content">
+                      Theme:
+                    </span>
+                    <span className="text-sm text-base-content/80 leading-relaxed font-sans select-none">
+                      Customize the global background theme (Latte, Frappé, Macchiato, Mocha).
+                    </span>
+                  </div>
                   <select
                     value={activeTheme}
                     onChange={(e) => handleThemeChange(e.target.value)}
-                    className="select select-bordered select-xs sm:select-sm w-full sm:w-48 bg-base-300 font-sans cursor-pointer focus:outline-hidden"
+                    className="select select-bordered select-sm w-full sm:w-48 bg-base-300 font-sans cursor-pointer focus:outline-hidden text-base h-9 px-3"
                   >
                     <option value="latte">Latte (Light)</option>
                     <option value="frappe">Frappé (Dark)</option>
@@ -201,14 +206,19 @@ export default function SettingsModal({ isOpen, onClose }: Readonly<SettingsModa
                 </div>
 
                 {/* Accent Selector Row */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 py-2 mt-1">
-                  <span className="text-xs font-bold uppercase tracking-wider text-base-content/60">
-                    Accent:
-                  </span>
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4 py-3 mt-1">
+                  <div className="flex flex-col text-left gap-0.5 max-w-xs">
+                    <span className="text-base font-bold uppercase tracking-wider text-base-content">
+                      Accent:
+                    </span>
+                    <span className="text-sm text-base-content/80 leading-relaxed font-sans select-none">
+                      Select your highlight color preference applied to buttons, borders, and active tabs.
+                    </span>
+                  </div>
                   <select
                     value={activeAccent}
                     onChange={(e) => handleAccentChange(e.target.value)}
-                    className="select select-bordered select-xs sm:select-sm w-full sm:w-48 bg-base-300 font-sans cursor-pointer focus:outline-hidden"
+                    className="select select-bordered select-sm w-full sm:w-48 bg-base-300 font-sans cursor-pointer focus:outline-hidden text-base h-9 px-3"
                   >
                     {Object.entries(ACCENT_COLORS).map(([key, color]) => (
                       <option key={key} value={key}>
@@ -221,14 +231,14 @@ export default function SettingsModal({ isOpen, onClose }: Readonly<SettingsModa
             )}
 
             {activeTab === "model" && (
-              <div className="flex flex-col">
+              <div className="flex flex-col gap-1">
                 {/* Default Model Select Row */}
-                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 sm:gap-4 py-3 border-b border-base-content/5">
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4 py-3 border-b border-base-content/5">
                   <div className="flex flex-col text-left gap-0.5 max-w-xs">
-                    <span className="text-xs font-bold uppercase tracking-wider text-base-content/60">
+                    <span className="text-base font-bold uppercase tracking-wider text-base-content">
                       Default Model:
                     </span>
-                    <span className="text-[10px] text-base-content/40 leading-relaxed font-sans select-none">
+                    <span className="text-sm text-base-content/80 leading-relaxed font-sans select-none">
                       The model used automatically when starting a new chat session.
                     </span>
                   </div>
@@ -236,7 +246,7 @@ export default function SettingsModal({ isOpen, onClose }: Readonly<SettingsModa
                     value={defaultModel}
                     onChange={(e) => handleDefaultModelChange(e.target.value)}
                     disabled={runnableModels.length === 0}
-                    className="select select-bordered select-xs sm:select-sm w-full sm:w-48 bg-base-300 font-sans cursor-pointer focus:outline-hidden"
+                    className="select select-bordered select-sm w-full sm:w-48 bg-base-300 font-sans cursor-pointer focus:outline-hidden text-base h-9 px-3"
                   >
                     {runnableModels.length === 0 ? (
                       <option value="">No models installed</option>
@@ -251,12 +261,12 @@ export default function SettingsModal({ isOpen, onClose }: Readonly<SettingsModa
                 </div>
 
                 {/* Active Model Select Row */}
-                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 sm:gap-4 py-3 mt-1">
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4 py-3 mt-1">
                   <div className="flex flex-col text-left gap-0.5 max-w-xs">
-                    <span className="text-xs font-bold uppercase tracking-wider text-base-content/60">
+                    <span className="text-base font-bold uppercase tracking-wider text-base-content">
                       Active Model:
                     </span>
-                    <span className="text-[10px] text-base-content/40 leading-relaxed font-sans select-none">
+                    <span className="text-sm text-base-content/80 leading-relaxed font-sans select-none">
                       The model currently processing responses in this chat thread.
                     </span>
                   </div>
@@ -264,7 +274,7 @@ export default function SettingsModal({ isOpen, onClose }: Readonly<SettingsModa
                     value={activeModel}
                     onChange={(e) => handleActiveModelChange(e.target.value)}
                     disabled={runnableModels.length === 0}
-                    className="select select-bordered select-xs sm:select-sm w-full sm:w-48 bg-base-300 font-sans cursor-pointer focus:outline-hidden"
+                    className="select select-bordered select-sm w-full sm:w-48 bg-base-300 font-sans cursor-pointer focus:outline-hidden text-base h-9 px-3"
                   >
                     {runnableModels.length === 0 ? (
                       <option value="">No models installed</option>
@@ -281,11 +291,11 @@ export default function SettingsModal({ isOpen, onClose }: Readonly<SettingsModa
             )}
 
             {activeTab === "database" && (
-              <div className="flex flex-col gap-2 py-1">
-                <span className="text-xs font-bold uppercase tracking-wider text-base-content/60">
+              <div className="flex flex-col gap-3 py-2 text-left">
+                <span className="text-base font-bold uppercase tracking-wider text-base-content">
                   Database History:
                 </span>
-                <p className="text-xs text-base-content/50 italic bg-base-300 p-3 rounded-lg border border-base-content/5">
+                <p className="text-base text-base-content/80 italic bg-base-300 p-4 rounded-xl border border-base-content/5">
                   Currently running: SQLite (No active sessions saved)
                 </p>
               </div>
