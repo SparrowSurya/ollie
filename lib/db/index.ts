@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { PrismaClient as DevPrismaClient } from "@prisma/client/dev";
-import { PrismaClient as ProdPrismaClient } from "@prisma/client/prod";
+import { PrismaClient } from "@prisma/client";
 import { PrismaLibSql } from "@prisma/adapter-libsql";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
@@ -23,19 +22,19 @@ export interface DbMessage {
 }
 
 const databaseUrl = process.env.DATABASE_URL || "file:./dev.db";
-const isPostgres = databaseUrl.startsWith("postgres://") || databaseUrl.startsWith("postgresql://");
+const databaseType = process.env.DATABASE_TYPE || (databaseUrl.startsWith("postgres://") || databaseUrl.startsWith("postgresql://") ? "postgres" : "sqlite3");
 
 let prismaInstance: any = null;
 
 function getPrisma() {
   if (!prismaInstance) {
-    if (isPostgres) {
+    if (databaseType === "postgres") {
       const pool = new Pool({ connectionString: databaseUrl });
       const adapter = new PrismaPg(pool);
-      prismaInstance = new ProdPrismaClient({ adapter });
+      prismaInstance = new PrismaClient({ adapter });
     } else {
       const adapter = new PrismaLibSql({ url: databaseUrl });
-      prismaInstance = new DevPrismaClient({ adapter });
+      prismaInstance = new PrismaClient({ adapter });
     }
   }
   return prismaInstance;

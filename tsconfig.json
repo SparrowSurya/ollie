@@ -19,9 +19,7 @@
       }
     ],
     "paths": {
-      "@/*": ["./*"],
-      "@prisma/client/dev": ["./prisma/generated/dev"],
-      "@prisma/client/prod": ["./prisma/generated/prod"]
+      "@/*": ["./*"]
     },
     "types": ["bun-types"]
   },

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
+import { useParams, useRouter } from "next/navigation";
 import { ChatUiMessage } from "@/components/chat";
 import { useOllama } from "@/contexts/OllamaContext";
 import { useSettings } from "@/contexts/SettingsContext";
@@ -22,7 +23,7 @@ export interface DbMessageResponse {
   timestamp: string | Date;
 }
 
-export interface UseChatReturn {
+export interface ChatContextType {
   messages: ChatUiMessage[];
   isGenerating: boolean;
   isBootstrapping: boolean;
@@ -30,13 +31,12 @@ export interface UseChatReturn {
   activeModel: string;
   defaultModel: string;
   runnableModels: string[];
-  bootstrapChat: (selectedModel: string, useAsDefault: boolean) => Promise<void>;
+  bootstrapChat: (model: string, useAsDefault: boolean) => Promise<void>;
   sendMessage: (text: string) => Promise<void>;
   setActiveModel: (model: string) => void;
   errorToast: string | null;
   setErrorToast: (msg: string | null) => void;
   isInitializing: boolean;
-  // History session properties
   sessions: DbSession[];
   activeSessionId: string;
   startNewChat: () => void;
@@ -44,7 +44,13 @@ export interface UseChatReturn {
   deleteSession: (sessionId: string) => Promise<void>;
 }
 
-export function useChat(): UseChatReturn {
+const ChatContext = createContext<ChatContextType | undefined>(undefined);
+
+export function ChatProvider({ children }: { children: React.ReactNode }) {
+  const params = useParams();
+  const router = useRouter();
+  const urlSessionId = params?.sessionId as string | undefined;
+
   const {
     runnableModels,
     defaultModel,
@@ -66,6 +72,8 @@ export function useChat(): UseChatReturn {
   const [sessions, setSessions] = useState<DbSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string>("");
 
+  const loadedSessionIdRef = useRef<string>("");
+
   const fetchSessions = useCallback(async () => {
     try {
       const response = await fetch("/api/sessions");
@@ -74,89 +82,83 @@ export function useChat(): UseChatReturn {
         setSessions(data.sessions || []);
       }
     } catch (e) {
-      console.error("useChat: Failed to fetch sessions:", e);
+      console.error("ChatContext: Failed to fetch sessions:", e);
     }
   }, []);
 
-  // Fetch sessions and load the most recent session on mount
+  // Fetch sessions list on mount
   useEffect(() => {
-    const initSessions = async () => {
-      try {
-        const response = await fetch("/api/sessions");
-        if (response.ok) {
-          const data = await response.json();
-          const list = data.sessions || [];
-          setSessions(list);
+    const loadList = async () => {
+      await fetchSessions();
+    };
+    loadList();
+  }, [fetchSessions]);
 
-          if (list.length > 0) {
-            // Load the most recent session automatically
-            const latestSession = list[0];
-            setActiveSessionId(latestSession.id);
-
-            const msgResponse = await fetch(`/api/sessions/messages?id=${latestSession.id}`);
-            if (msgResponse.ok) {
-              const msgData = await msgResponse.json();
-              setMessages(
-                (msgData.messages || []).map((m: DbMessageResponse) => ({
-                  id: m.id,
-                  role: m.role,
-                  content: m.content,
-                  timestamp: new Date(m.timestamp),
-                  modelName: m.modelName || undefined,
-                }))
-              );
-              if (msgData.model) {
-                setActiveModel(msgData.model);
-              }
-              setIsModelLoaded(true);
-            }
-          } else {
-            // No sessions, start a fresh session
-            setActiveSessionId(crypto.randomUUID());
-          }
-        } else {
-          // If the sessions response fails (e.g. 500 error), start a fresh session
-          setActiveSessionId(crypto.randomUUID());
-        }
-      } catch (e) {
-        console.error("useChat: Failed to load initial sessions:", e);
-        setActiveSessionId(crypto.randomUUID());
+  // Sync activeSessionId with URL param
+  useEffect(() => {
+    const syncSession = async () => {
+      if (urlSessionId) {
+        setActiveSessionId(urlSessionId);
+      } else {
+        // Clear messages and model status for new chat on /chat
+        const newUuid = crypto.randomUUID();
+        setActiveSessionId(newUuid);
+        loadedSessionIdRef.current = newUuid;
+        setMessages([]);
+        setIsModelLoaded(false);
       }
     };
+    syncSession();
+  }, [urlSessionId]);
 
-    initSessions();
-  }, [setActiveModel]);
+  // Load message history when activeSessionId changes (matching the URL)
+  useEffect(() => {
+    if (!activeSessionId) return;
+
+    if (urlSessionId && activeSessionId === urlSessionId) {
+      if (loadedSessionIdRef.current === activeSessionId) return;
+
+      const loadSession = async () => {
+        try {
+          const response = await fetch(`/api/sessions/messages?id=${activeSessionId}`);
+          if (response.ok) {
+            const data = await response.json();
+            setMessages(
+              (data.messages || []).map((m: DbMessageResponse) => ({
+                id: m.id,
+                role: m.role,
+                content: m.content,
+                timestamp: new Date(m.timestamp),
+                modelName: m.modelName || undefined,
+              }))
+            );
+            if (data.model) {
+              setActiveModel(data.model);
+            }
+            setIsModelLoaded(true);
+            loadedSessionIdRef.current = activeSessionId;
+          } else {
+            // Session not found in DB, treat as a fresh chat session with this ID
+            setMessages([]);
+            setIsModelLoaded(false);
+          }
+        } catch (e) {
+          console.error("ChatContext: Failed to load session messages:", e);
+          setMessages([]);
+          setIsModelLoaded(false);
+        }
+      };
+      loadSession();
+    }
+  }, [activeSessionId, urlSessionId, setActiveModel]);
 
   const startNewChat = useCallback(() => {
-    setActiveSessionId(crypto.randomUUID());
-    setMessages([]);
-    setIsModelLoaded(false);
-  }, []);
+    router.push("/chat");
+  }, [router]);
 
   const switchSession = useCallback(async (sessionId: string) => {
-    try {
-      setActiveSessionId(sessionId);
-      const response = await fetch(`/api/sessions/messages?id=${sessionId}`);
-      if (response.ok) {
-        const data = await response.json();
-        setMessages(
-          (data.messages || []).map((m: DbMessageResponse) => ({
-            id: m.id,
-            role: m.role,
-            content: m.content,
-            timestamp: new Date(m.timestamp),
-            modelName: m.modelName || undefined,
-          }))
-        );
-        if (data.model) {
-          setActiveModel(data.model);
-        }
-        setIsModelLoaded(true);
-      }
-    } catch (e) {
-      console.error("useChat: Failed to switch session:", e);
-    }
-  }, [setActiveModel]);
+    router.push(`/chat/${sessionId}`);
+  }, [router]);
 
   const deleteSession = useCallback(async (sessionId: string) => {
     try {
@@ -173,7 +175,7 @@ export function useChat(): UseChatReturn {
         throw new Error("Failed to delete session");
       }
     } catch (e) {
-      console.error("useChat: Failed to delete session:", e);
+      console.error("ChatContext: Failed to delete session:", e);
     }
   }, [activeSessionId, fetchSessions, startNewChat]);
 
@@ -246,6 +248,11 @@ export function useChat(): UseChatReturn {
       // Add user message and assistant placeholder message to state
       setMessages((prev) => [...prev, userMessage, assistantMessagePlaceholder]);
 
+      // If we are on /chat, redirect to /chat/[activeSessionId] on first message submission
+      if (!urlSessionId) {
+        router.push(`/chat/${activeSessionId}`);
+      }
+
       try {
         // Sync sessions in sidebar immediately so it lists this session
         await fetchSessions();
@@ -316,7 +323,7 @@ export function useChat(): UseChatReturn {
         setIsGenerating(false);
       }
     },
-    [isGenerating, isBootstrapping, isModelLoaded, activeModel, activeSessionId, customInstructions, fetchSessions]
+    [isGenerating, isBootstrapping, isModelLoaded, activeModel, activeSessionId, customInstructions, fetchSessions, urlSessionId, router]
   );
 
   const changeActiveModel = useCallback(async (modelName: string) => {
@@ -336,28 +343,42 @@ export function useChat(): UseChatReturn {
       });
       await fetchSessions();
     } catch (e) {
-      console.error("useChat: Failed to update session model in DB:", e);
+      console.error("ChatContext: Failed to update session model in DB:", e);
     }
   }, [activeSessionId, fetchSessions, setActiveModel]);
 
-  return {
-    messages,
-    isGenerating,
-    isBootstrapping,
-    isModelLoaded,
-    activeModel,
-    defaultModel,
-    runnableModels,
-    bootstrapChat,
-    sendMessage,
-    setActiveModel: changeActiveModel,
-    errorToast,
-    setErrorToast,
-    isInitializing,
-    sessions,
-    activeSessionId,
-    startNewChat,
-    switchSession,
-    deleteSession,
-  };
+  return (
+    <ChatContext.Provider
+      value={{
+        messages,
+        isGenerating,
+        isBootstrapping,
+        isModelLoaded,
+        activeModel,
+        defaultModel,
+        runnableModels,
+        bootstrapChat,
+        sendMessage,
+        setActiveModel: changeActiveModel,
+        errorToast,
+        setErrorToast,
+        isInitializing,
+        sessions,
+        activeSessionId,
+        startNewChat,
+        switchSession,
+        deleteSession,
+      }}
+    >
+      {children}
+    </ChatContext.Provider>
+  );
+}
+
+export function useChatContext() {
+  const context = useContext(ChatContext);
+  if (context === undefined) {
+    throw new Error("useChatContext must be used within a ChatProvider");
+  }
+  return context;
 }

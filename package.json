@@ -3,8 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "bun --bun next dev",
-    "build": "bun --bun next build",
+    "db:prepare": "bun scripts/prepare-prisma.ts && prisma generate",
+    "db:push": "bun scripts/prepare-prisma.ts && prisma db push",
+    "dev": "bun db:prepare && bun --bun next dev",
+    "build": "bun db:prepare && bun --bun next build",
     "start": "bun --bun next start",
     "lint": "eslint"
   },

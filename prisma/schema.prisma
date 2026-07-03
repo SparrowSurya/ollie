@@ -1,10 +1,9 @@
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
 }
 
 generator client {
   provider = "prisma-client-js"
-  output   = "./generated/prod"
 }
 
 model Session {

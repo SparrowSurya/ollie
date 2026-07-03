@@ -3,7 +3,7 @@
 import React from "react";
 import ChatView from "@/components/chat/view";
 import Sidebar from "@/components/chat/sidebar";
-import { useChat } from "@/hooks/useChat";
+import { useChatContext } from "@/contexts/ChatContext";
 
 export default function ChatPage() {
   const {
@@ -25,7 +25,7 @@ export default function ChatPage() {
     startNewChat,
     switchSession,
     deleteSession,
-  } = useChat();
+  } = useChatContext();
 
   if (isInitializing) {
     return (

@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { Plus, MessageSquare, Trash2, Menu, X } from "lucide-react";
-import { DbSession } from "@/hooks/useChat";
+import { DbSession } from "@/contexts/ChatContext";
 
 interface SidebarProps {
   sessions: DbSession[];
