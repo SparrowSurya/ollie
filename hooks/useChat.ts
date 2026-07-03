@@ -48,9 +48,7 @@ export function useChat(): UseChatReturn {
           const data = await response.json();
           const list: string[] = data.models || [];
 
-          const simulatedStr = localStorage.getItem("olly-simulated-models") || "[]";
-          const simulatedList: string[] = JSON.parse(simulatedStr);
-          const modelsList = Array.from(new Set([...list, ...simulatedList]));
+          const modelsList: string[] = list;
           setRunnableModels(modelsList);
 
           // Resolve default model from localStorage or use the first model in list
@@ -104,9 +102,7 @@ export function useChat(): UseChatReturn {
           const data = await response.json();
           const list = data.models || [];
 
-          const simulatedStr = localStorage.getItem("olly-simulated-models") || "[]";
-          const simulatedList: string[] = JSON.parse(simulatedStr);
-          const modelsList = Array.from(new Set([...list, ...simulatedList]));
+          const modelsList = list;
           setRunnableModels(modelsList);
 
           // If current active model was deleted, reset active model state

@@ -39,7 +39,7 @@ export default function SettingsModal({ isOpen, onClose }: Readonly<SettingsModa
     return "";
   });
 
-  // Pull states and simulated mocks helpers
+  // Pull states
   const [pullingStatus, setPullingStatus] = useState<Record<string, { percent: number; status: string; error?: boolean }>>({});
   const [customModelName, setCustomModelName] = useState<string>("");
   const [modelToast, setModelToast] = useState<string | null>(null);
@@ -68,27 +68,22 @@ export default function SettingsModal({ isOpen, onClose }: Readonly<SettingsModa
         const data = await response.json();
         const list = data.models || [];
 
-        // Read mock/simulated models from localStorage to display
-        const simulatedStr = localStorage.getItem("olly-simulated-models") || "[]";
-        const simulatedList: string[] = JSON.parse(simulatedStr);
-        const mergedList = Array.from(new Set([...list, ...simulatedList]));
-
-        setRunnableModels(mergedList);
+        setRunnableModels(list);
 
         if (typeof window !== "undefined") {
           const savedDefault = localStorage.getItem("olly-default-model") || "";
-          if (savedDefault && mergedList.includes(savedDefault)) {
+          if (savedDefault && list.includes(savedDefault)) {
             setDefaultModelState(savedDefault);
-          } else if (mergedList.length > 0) {
-            setDefaultModelState(mergedList[0]);
-            localStorage.setItem("olly-default-model", mergedList[0]);
+          } else if (list.length > 0) {
+            setDefaultModelState(list[0]);
+            localStorage.setItem("olly-default-model", list[0]);
           }
 
           const savedActive = localStorage.getItem("olly-active-model") || "";
-          if (savedActive && mergedList.includes(savedActive)) {
+          if (savedActive && list.includes(savedActive)) {
             setActiveModelState(savedActive);
-          } else if (mergedList.length > 0) {
-            setActiveModelState(mergedList[0]);
+          } else if (list.length > 0) {
+            setActiveModelState(list[0]);
           }
         }
       }
@@ -175,24 +170,6 @@ export default function SettingsModal({ isOpen, onClose }: Readonly<SettingsModa
     // If details are already loaded, do not re-fetch
     if (loadedDetails[modelName]) return;
 
-    // Fast mock fallback for simulated models
-    if (modelName.startsWith("mock-")) {
-      setLoadedDetails((prev) => ({
-        ...prev,
-        [modelName]: {
-          name: modelName,
-          size: "3.8 GB",
-          sizeInRam: "4.2 GB (VRAM)",
-          isLoaded: true,
-          format: "gguf",
-          family: "llama",
-          quantization: "Q4_K_M",
-          capabilities: ["completion", "tools", "thinking"],
-        },
-      }));
-      return;
-    }
-
     setLoadingDetails((prev) => ({ ...prev, [modelName]: true }));
 
     try {
@@ -210,93 +187,8 @@ export default function SettingsModal({ isOpen, onClose }: Readonly<SettingsModa
     }
   };
 
-  // Simulated pull progress logic for mock- prefixed models
-  const runSimulatedPull = (modelName: string) => {
-    setPullingStatus((prev) => ({
-      ...prev,
-      [modelName]: { percent: 0, status: "Simulating download..." },
-    }));
-
-    window.dispatchEvent(
-      new CustomEvent("olly-pull-start", {
-        detail: { model: modelName },
-      })
-    );
-
-    let currentPercent = 0;
-    const interval = setInterval(() => {
-      currentPercent += 10;
-      if (currentPercent > 100) {
-        clearInterval(interval);
-
-        // Clean status
-        setPullingStatus((prev) => {
-          const next = { ...prev };
-          delete next[modelName];
-          return next;
-        });
-
-        // Add to local simulated models list
-        const simulatedStr = localStorage.getItem("olly-simulated-models") || "[]";
-        const simulatedList: string[] = JSON.parse(simulatedStr);
-        if (!simulatedList.includes(modelName)) {
-          simulatedList.push(modelName);
-          localStorage.setItem("olly-simulated-models", JSON.stringify(simulatedList));
-        }
-
-        window.dispatchEvent(
-          new CustomEvent("olly-pull-complete", {
-            detail: { model: modelName, success: true },
-          })
-        );
-
-        showModelToast(`Mock model "${modelName}" installed successfully!`);
-        fetchRunnable();
-        window.dispatchEvent(new Event("olly-runnable-models-changed"));
-        delete abortControllersRef.current[modelName];
-      } else {
-        setPullingStatus((prev) => ({
-          ...prev,
-          [modelName]: { percent: currentPercent, status: "Downloading model chunks..." },
-        }));
-
-        window.dispatchEvent(
-          new CustomEvent("olly-pull-progress", {
-            detail: { model: modelName, percent: currentPercent, status: "Downloading model chunks..." },
-          })
-        );
-      }
-    }, 500);
-
-    // Save cancellation handle as a mock AbortController structure
-    abortControllersRef.current[modelName] = {
-      abort: () => {
-        clearInterval(interval);
-        setPullingStatus((prev) => {
-          const next = { ...prev };
-          delete next[modelName];
-          return next;
-        });
-        window.dispatchEvent(
-          new CustomEvent("olly-pull-complete", {
-            detail: { model: modelName, success: false, error: "Aborted by user" },
-          })
-        );
-        showModelToast(`Download for "${modelName}" cancelled.`);
-        delete abortControllersRef.current[modelName];
-      },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } as any;
-  };
-
   const handlePullModel = async (modelName: string) => {
     if (!modelName.trim()) return;
-
-    // Route to simulated pulls if prefixed with mock-
-    if (modelName.startsWith("mock-")) {
-      runSimulatedPull(modelName);
-      return;
-    }
 
     setPullingStatus((prev) => ({
       ...prev,
@@ -436,19 +328,6 @@ export default function SettingsModal({ isOpen, onClose }: Readonly<SettingsModa
   };
 
   const handleDeleteModel = async (modelName: string) => {
-    // If it's a simulated model, delete it locally from localStorage
-    if (modelName.startsWith("mock-")) {
-      const simulatedStr = localStorage.getItem("olly-simulated-models") || "[]";
-      let simulatedList: string[] = JSON.parse(simulatedStr);
-      simulatedList = simulatedList.filter((m) => m !== modelName);
-      localStorage.setItem("olly-simulated-models", JSON.stringify(simulatedList));
-
-      showModelToast(`Mock model "${modelName}" deleted.`);
-      await fetchRunnable();
-      window.dispatchEvent(new Event("olly-runnable-models-changed"));
-      return;
-    }
-
     try {
       const response = await fetch("/api/models/delete", {
         method: "POST",
@@ -480,7 +359,6 @@ export default function SettingsModal({ isOpen, onClose }: Readonly<SettingsModa
     handlePullModel(name);
   };
 
-  // Close modal if user clicks the backdrop overlay outside the card
   const handleBackdropClick = (e: React.MouseEvent) => {
     if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
       onClose();
@@ -581,7 +459,7 @@ export default function SettingsModal({ isOpen, onClose }: Readonly<SettingsModa
                       Accent:
                     </span>
                     <span className="text-sm text-base-content/80 leading-relaxed font-sans select-none">
-                      Select your highlight color preference applied to buttons, borders, and active tabs.
+                      Select your highlight color preference applied to borders and active tabs.
                     </span>
                   </div>
                   <select
@@ -681,10 +559,9 @@ export default function SettingsModal({ isOpen, onClose }: Readonly<SettingsModa
                             <div
                               className="flex items-center justify-between py-1.5 px-3 bg-base-300/40 rounded-xl border border-base-content/5 hover:border-base-content/10 transition-all gap-4"
                             >
-                              {/* Model name trigger details pane on double click */}
                               <span
                                 onDoubleClick={() => handleModelDoubleClick(name)}
-                                className="text-xs font-mono font-bold text-base-content leading-none cursor-pointer hover:underline py-1 flex-1 text-left"
+                                className="text-xs font-mono font-bold text-base-content leading-none cursor-pointer hover:underline py-1 flex-1 text-left truncate"
                                 title="Double click to view details"
                               >
                                 {name}
@@ -714,7 +591,6 @@ export default function SettingsModal({ isOpen, onClose }: Readonly<SettingsModa
                                 ) : isInstalled ? (
                                   <div className="flex items-center gap-2">
                                     {deletingModel === name ? (
-                                      // Confirmation State: Confirm comes BEFORE cancel
                                       <div className="flex items-center gap-1.5 animate-fade-in select-none">
                                         <button
                                           onClick={() => {
@@ -733,21 +609,13 @@ export default function SettingsModal({ isOpen, onClose }: Readonly<SettingsModa
                                         </button>
                                       </div>
                                     ) : (
-                                      // Standard state
-                                      <>
-                                        {name.startsWith("mock-") && (
-                                          <span className="badge badge-warning text-[9px] font-bold uppercase py-0.5 text-warning-content px-1.5 rounded-md border-none scale-90 select-none">
-                                            Simulated
-                                          </span>
-                                        )}
-                                        <button
-                                          onClick={() => setDeletingModel(name)}
-                                          className="btn btn-xs btn-ghost text-error hover:bg-error/15 hover:text-error rounded-full p-1 h-6 w-6 min-h-0 shrink-0"
-                                          title="Delete model"
-                                        >
-                                          <Trash2 size={12} />
-                                        </button>
-                                      </>
+                                      <button
+                                        onClick={() => setDeletingModel(name)}
+                                        className="btn btn-xs btn-ghost text-error hover:bg-error/15 hover:text-error rounded-full p-1 h-6 w-6 min-h-0 shrink-0"
+                                        title="Delete model"
+                                      >
+                                        <Trash2 size={12} />
+                                      </button>
                                     )}
                                   </div>
                                 ) : (
@@ -771,7 +639,7 @@ export default function SettingsModal({ isOpen, onClose }: Readonly<SettingsModa
                                   </div>
                                 ) : loadedDetails[name] ? (
                                   <>
-                                    <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 font-mono text-xs">
+                                    <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 font-mono text-[10.5px]">
                                       <div>
                                         <span className="opacity-55">Size on Disk:</span>{" "}
                                         {loadedDetails[name].size}
@@ -843,7 +711,7 @@ export default function SettingsModal({ isOpen, onClose }: Readonly<SettingsModa
                     Pull Custom Model:
                   </span>
                   <span className="text-xs text-base-content/80 leading-relaxed font-sans select-none mb-1">
-                    To test offline simulated pulls, type <code className="bg-base-300 px-1 py-0.5 rounded-sm">mock-llama3</code> or similar and click Pull.
+                    Pull any model directly from the Ollama library. Make sure to specify the tag (e.g. qwen2.5:3b).
                   </span>
                   <div className="flex gap-2">
                     <input
