@@ -7,12 +7,18 @@ export interface ChatInputProps {
   placeholder?: string;
   onSend?: (text: string) => void;
   disabled?: boolean;
+  activeModel?: string;
+  runnableModels?: string[];
+  onModelChange?: (model: string) => void;
 }
 
 export default function ChatInput({
   placeholder,
   onSend,
   disabled = false,
+  activeModel = "",
+  runnableModels = [],
+  onModelChange,
 }: Readonly<ChatInputProps>) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [text, setText] = useState<string>("");
@@ -52,7 +58,7 @@ export default function ChatInput({
 
   return (
     <div
-      className="flex items-end gap-2 bg-base-300 border border-base-content/20 rounded-2xl md:rounded-3xl px-4 py-2.5 transition-all shadow-xs focus-within:border-user-accent focus-within:ring-1 focus-within:ring-user-accent/30"
+      className="flex flex-col bg-base-300 border border-base-content/20 rounded-2xl md:rounded-3xl p-3 px-4 transition-all shadow-xs focus-within:border-user-accent focus-within:ring-1 focus-within:ring-user-accent/30 gap-1.5"
     >
       <textarea
         ref={textareaRef}
@@ -61,22 +67,68 @@ export default function ChatInput({
         onChange={(e) => setText(e.target.value)}
         onKeyDown={handleKeyDown}
         placeholder={placeholder ?? "Ask Olly..."}
-        className="flex-1 bg-transparent border-none text-base text-base-content leading-relaxed font-sans placeholder-base-content/30 resize-none max-h-40 py-1.5 focus:outline-none focus:ring-0 focus:ring-offset-0 min-h-6 max-w-full"
+        className="w-full bg-transparent border-none text-base text-base-content leading-relaxed font-sans placeholder-base-content/30 resize-none max-h-40 py-1 focus:outline-hidden focus:ring-0 focus:ring-offset-0 min-h-6 max-w-full"
       ></textarea>
-      {text.trim() !== "" && (
+
+      {/* Bottom Actions Toolbar */}
+      <div className="flex items-center justify-between border-t border-base-content/5 pt-2 mt-0.5 select-none">
+        {/* Left: Model Selector Pill */}
+        <div className="flex items-center">
+          {runnableModels.length > 0 && activeModel ? (
+            <div className="dropdown dropdown-top select-none">
+              <div
+                tabIndex={0}
+                role="button"
+                className="flex items-center gap-1.5 text-[11px] font-mono font-bold text-base-content/60 bg-base-content/5 hover:bg-base-content/10 h-6 px-2.5 rounded-full cursor-pointer focus:outline-hidden"
+              >
+                <span>{activeModel}</span>
+                <span className="text-[8px] opacity-65">▼</span>
+              </div>
+              <ul
+                tabIndex={0}
+                className="dropdown-content menu p-1.5 shadow-xl bg-base-200 border border-base-content/10 rounded-xl w-48 text-[11px] font-mono font-bold text-base-content/85 z-50 mb-1.5"
+              >
+                {runnableModels.map((m) => (
+                  <li key={m}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onModelChange?.(m);
+                        if (document.activeElement instanceof HTMLElement) {
+                          document.activeElement.blur();
+                        }
+                      }}
+                      className={`px-2.5 py-1.5 rounded-lg text-left w-full hover:bg-base-content/10 hover:text-base-content ${
+                        m === activeModel ? "bg-user-accent/10 text-user-accent" : ""
+                      }`}
+                    >
+                      {m}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <span className="text-[11px] font-mono font-semibold text-base-content/30 bg-base-content/5 px-2 py-0.5 rounded-full select-none">
+              No active model
+            </span>
+          )}
+        </div>
+
+        {/* Right: Send Button */}
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={disabled}
+          disabled={disabled || text.trim() === ""}
           className={`btn btn-circle btn-xs md:btn-sm shrink-0 shadow-xs border bg-transparent hover:bg-user-accent/10 transition-all ${
-            disabled
-              ? "opacity-40 cursor-not-allowed border-user-accent/50 text-user-accent/50"
+            disabled || text.trim() === ""
+              ? "opacity-30 cursor-not-allowed border-base-content/10 text-base-content/30"
               : "hover:scale-105 active:scale-95 border-user-accent text-user-accent"
           }`}
         >
           <SendHorizonal size={14} className="text-inherit animate-none" />
         </button>
-      )}
+      </div>
     </div>
   );
 }

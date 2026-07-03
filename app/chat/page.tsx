@@ -10,10 +10,12 @@ export default function ChatPage() {
     isGenerating,
     isBootstrapping,
     isModelLoaded,
+    activeModel,
     defaultModel,
     runnableModels,
     bootstrapChat,
     sendMessage,
+    setActiveModel,
     errorToast,
     setErrorToast,
   } = useChat();
@@ -55,9 +57,11 @@ export default function ChatPage() {
           isGenerating={isGenerating}
           isBootstrapping={isBootstrapping}
           isModelLoaded={isModelLoaded}
+          activeModel={activeModel}
           defaultModel={defaultModel}
           runnableModels={runnableModels}
           bootstrapChat={bootstrapChat}
+          setActiveModel={setActiveModel}
           errorToast={errorToast}
           setErrorToast={setErrorToast}
         />

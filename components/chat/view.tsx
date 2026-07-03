@@ -12,9 +12,11 @@ export interface ChatViewProps {
   isGenerating?: boolean;
   isBootstrapping?: boolean;
   isModelLoaded?: boolean;
+  activeModel?: string;
   defaultModel?: string;
   runnableModels?: string[];
   bootstrapChat?: (model: string, useAsDefault: boolean) => Promise<void>;
+  setActiveModel?: (model: string) => void;
   errorToast?: string | null;
   setErrorToast?: (msg: string | null) => void;
 }
@@ -25,9 +27,11 @@ export default function ChatView({
   isGenerating = false,
   isBootstrapping = false,
   isModelLoaded = false,
+  activeModel = "",
   defaultModel = "",
   runnableModels = [],
   bootstrapChat,
+  setActiveModel,
   errorToast = null,
   setErrorToast,
 }: Readonly<ChatViewProps>) {
@@ -38,8 +42,13 @@ export default function ChatView({
   const [useAsDefault, setUseAsDefault] = useState<boolean>(true);
   const [toast, setToast] = useState<string | null>(null);
 
-  // Sync selected model state when defaultModel or runnableModels load
-  const activeSelected = selectedModel || defaultModel || (runnableModels.length > 0 ? runnableModels[0] : "");
+  // Sync selected model state when defaultModel, activeModel, or runnableModels load
+  const activeSelected = activeModel || selectedModel || defaultModel || (runnableModels.length > 0 ? runnableModels[0] : "");
+
+  const handleModelChange = (modelName: string) => {
+    setSelectedModel(modelName);
+    setActiveModel?.(modelName);
+  };
 
   // Auto-dismiss the visual error toasts after a brief period
   useEffect(() => {
@@ -194,7 +203,13 @@ export default function ChatView({
         <div className="flex-1 flex flex-col justify-center items-stretch w-full max-w-xl mx-auto px-6 select-none">
           <ChatEmpty />
           <div className="w-full">
-            <ChatInput onSend={onSend} disabled={isGenerating} />
+            <ChatInput
+              onSend={onSend}
+              disabled={isGenerating}
+              activeModel={activeSelected}
+              runnableModels={runnableModels}
+              onModelChange={handleModelChange}
+            />
           </div>
         </div>
       ) : (
@@ -220,6 +235,9 @@ export default function ChatView({
             <ChatInput
               onSend={onSend}
               disabled={isGenerating || isBootstrapping}
+              activeModel={activeSelected}
+              runnableModels={runnableModels}
+              onModelChange={handleModelChange}
             />
           </div>
         </div>
