@@ -46,7 +46,11 @@ export function useChat(): UseChatReturn {
         const response = await fetch("/api/models?downloaded=true");
         if (response.ok) {
           const data = await response.json();
-          const modelsList: string[] = data.models || [];
+          const list: string[] = data.models || [];
+
+          const simulatedStr = localStorage.getItem("olly-simulated-models") || "[]";
+          const simulatedList: string[] = JSON.parse(simulatedStr);
+          const modelsList = Array.from(new Set([...list, ...simulatedList]));
           setRunnableModels(modelsList);
 
           // Resolve default model from localStorage or use the first model in list
@@ -88,6 +92,48 @@ export function useChat(): UseChatReturn {
     window.addEventListener("olly-active-model-changed", handleActiveModelChanged);
     return () => {
       window.removeEventListener("olly-active-model-changed", handleActiveModelChanged);
+    };
+  }, []);
+
+  // Listen to external runnable models list changes (e.g. from pulling/deleting in Settings modal)
+  useEffect(() => {
+    const handleRunnableChanged = async () => {
+      try {
+        const response = await fetch("/api/models?downloaded=true");
+        if (response.ok) {
+          const data = await response.json();
+          const list = data.models || [];
+
+          const simulatedStr = localStorage.getItem("olly-simulated-models") || "[]";
+          const simulatedList: string[] = JSON.parse(simulatedStr);
+          const modelsList = Array.from(new Set([...list, ...simulatedList]));
+          setRunnableModels(modelsList);
+
+          // If current active model was deleted, reset active model state
+          const savedActive = localStorage.getItem("olly-active-model") || "";
+          if (savedActive && !modelsList.includes(savedActive)) {
+            const nextActive = modelsList.length > 0 ? modelsList[0] : "";
+            setActiveModelState(nextActive);
+            localStorage.setItem("olly-active-model", nextActive);
+            window.dispatchEvent(new Event("olly-active-model-changed"));
+          }
+
+          // If default model was deleted, reset default model state
+          const savedDefault = localStorage.getItem("olly-default-model") || "";
+          if (savedDefault && !modelsList.includes(savedDefault)) {
+            const nextDefault = modelsList.length > 0 ? modelsList[0] : "";
+            setDefaultModel(nextDefault);
+            localStorage.setItem("olly-default-model", nextDefault);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to sync runnable models list:", error);
+      }
+    };
+
+    window.addEventListener("olly-runnable-models-changed", handleRunnableChanged);
+    return () => {
+      window.removeEventListener("olly-runnable-models-changed", handleRunnableChanged);
     };
   }, []);
 

@@ -3,15 +3,6 @@ import readEnv from "@/lib/config";
 
 const env = readEnv();
 
-// Registry of some suggested available models for users to pull
-const REGISTRY_MODELS = [
-  "deepseek-r1:1.5b",
-  "deepseek-r1:8b",
-  "llama3:8b",
-  "qwen2.5-coder:7b",
-  "gemma4:e2b",
-];
-
 // Helper to determine if a local model supports chat completions
 async function supportsChat(modelName: string): Promise<boolean> {
   try {
@@ -39,9 +30,6 @@ async function supportsChat(modelName: string): Promise<boolean> {
 
 export async function GET(req: Request) {
   try {
-    const { searchParams } = new URL(req.url);
-    const downloadedOnly = searchParams.get("downloaded") === "true";
-
     const res = await fetch(`${env.ollamaHost}/api/tags`, {
       signal: AbortSignal.timeout(3000),
     });
@@ -62,13 +50,7 @@ export async function GET(req: Request) {
     const checkedResults = await Promise.all(checkPromises);
     const pulledModels = checkedResults.filter((name): name is string => name !== null);
 
-    if (downloadedOnly) {
-      return NextResponse.json({ models: pulledModels });
-    }
-
-    // Merge pulled models with registry suggestions, removing duplicates
-    const allModelsSet = new Set([...pulledModels, ...REGISTRY_MODELS]);
-    return NextResponse.json({ models: Array.from(allModelsSet) });
+    return NextResponse.json({ models: pulledModels });
   } catch (error) {
     console.error("Error in /api/models:", error);
     return NextResponse.json(
