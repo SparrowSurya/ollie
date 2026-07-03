@@ -74,28 +74,28 @@ export default function SettingsModal({ isOpen, onClose }: Readonly<SettingsModa
   return (
     <div
       onClick={handleBackdropClick}
-      className="fixed inset-0 bg-black/45 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in"
+      className="fixed inset-0 bg-black/15 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in"
     >
       <div
         ref={modalRef}
         className="bg-base-200 text-base-content rounded-2xl border border-base-content/10 w-full max-w-xl shadow-2xl p-5 overflow-hidden flex flex-col max-h-[90vh] select-none"
       >
-        {/* Header: Title is left and close button is right on mobile, and flips on desktop */}
+        {/* Header: Title is always left-aligned with same margins, close button is on the right */}
         <div className="flex items-center justify-between border-b border-base-content/10 pb-3 mb-4 shrink-0">
-          <button
-            onClick={onClose}
-            className="btn btn-sm btn-ghost btn-circle order-last md:order-first text-base-content/60 hover:text-base-content hover:bg-base-300"
-            aria-label="Close settings"
-          >
-            <X className="w-4 h-4" />
-          </button>
-          <h3 className="text-xs font-bold uppercase tracking-wider text-base-content/50 order-first md:order-last">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-base-content/50">
             {activeTab === "apperence"
               ? "Appearance Settings"
               : activeTab === "model"
               ? "Model Configuration"
               : "Database Settings"}
           </h3>
+          <button
+            onClick={onClose}
+            className="btn btn-sm btn-ghost btn-circle text-base-content/60 hover:text-base-content hover:bg-base-300"
+            aria-label="Close settings"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
 
         {/* Modal Body: Column flow on mobile, Row flow on desktop */}
@@ -108,7 +108,7 @@ export default function SettingsModal({ isOpen, onClose }: Readonly<SettingsModa
                 onClick={() => setActiveTab(tab.id)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider transition-colors text-center md:text-left whitespace-nowrap cursor-pointer ${
                   activeTab === tab.id
-                    ? "bg-base-content/10 text-base-content"
+                    ? "bg-base-content/10 text-user-accent"
                     : "text-base-content/60 hover:bg-base-content/5"
                 }`}
               >

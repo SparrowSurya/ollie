@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { Send } from "lucide-react";
+import { SendHorizonal } from "lucide-react";
 
 export interface ChatInputProps {
   placeholder?: string;
@@ -52,7 +52,7 @@ export default function ChatInput({
 
   return (
     <div
-      className="flex items-end gap-2 bg-base-300 border border-base-content/20 rounded-2xl md:rounded-3xl px-4 py-2.5 transition-all shadow-xs focus-within:border-base-content/40"
+      className="flex items-end gap-2 bg-base-300 border border-base-content/20 rounded-2xl md:rounded-3xl px-4 py-2.5 transition-all shadow-xs focus-within:border-user-accent focus-within:ring-1 focus-within:ring-user-accent/30"
     >
       <textarea
         ref={textareaRef}
@@ -63,18 +63,20 @@ export default function ChatInput({
         placeholder={placeholder ?? "Ask Olly..."}
         className="flex-1 bg-transparent border-none text-base text-base-content leading-relaxed font-sans placeholder-base-content/30 resize-none max-h-40 py-1.5 focus:outline-none focus:ring-0 focus:ring-offset-0 min-h-6 max-w-full"
       ></textarea>
-      <button
-        type="button"
-        onClick={handleSubmit}
-        disabled={disabled || text.trim() === ""}
-        className={`btn btn-circle btn-primary btn-xs md:btn-sm shrink-0 shadow-xs transition-opacity ${
-          disabled || text.trim() === ""
-            ? "opacity-40 cursor-not-allowed"
-            : "hover:scale-105 active:scale-95"
-        }`}
-      >
-        <Send size={14} className="text-primary-content" />
-      </button>
+      {text.trim() !== "" && (
+        <button
+          type="button"
+          onClick={handleSubmit}
+          disabled={disabled}
+          className={`btn btn-circle btn-xs md:btn-sm shrink-0 shadow-xs border bg-transparent hover:bg-user-accent/10 transition-all ${
+            disabled
+              ? "opacity-40 cursor-not-allowed border-user-accent/50 text-user-accent/50"
+              : "hover:scale-105 active:scale-95 border-user-accent text-user-accent"
+          }`}
+        >
+          <SendHorizonal size={14} className="text-inherit animate-none" />
+        </button>
+      )}
     </div>
   );
 }
