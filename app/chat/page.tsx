@@ -5,7 +5,16 @@ import ChatView from "@/components/chat/view";
 import { useChat } from "@/hooks/useChat";
 
 export default function ChatPage() {
-  const { messages, isGenerating, isBootstrapping, sendMessage } = useChat();
+  const {
+    messages,
+    isGenerating,
+    isBootstrapping,
+    isModelLoaded,
+    defaultModel,
+    runnableModels,
+    bootstrapChat,
+    sendMessage,
+  } = useChat();
 
   // Register the global clipboard copy handler on component mount
   useEffect(() => {
@@ -43,6 +52,10 @@ export default function ChatPage() {
           onSend={sendMessage}
           isGenerating={isGenerating}
           isBootstrapping={isBootstrapping}
+          isModelLoaded={isModelLoaded}
+          defaultModel={defaultModel}
+          runnableModels={runnableModels}
+          bootstrapChat={bootstrapChat}
         />
       </div>
     </main>

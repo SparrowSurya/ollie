@@ -3,14 +3,14 @@ import { bootstrapModel } from "@/lib/agent";
 
 export async function POST(req: Request) {
   try {
-    const { threadId } = await req.json();
+    const { threadId, model } = await req.json();
 
     if (!threadId) {
       return NextResponse.json({ error: "Missing threadId" }, { status: 400 });
     }
 
     // Call bootstrapModel from lib/agent.ts which blocks until loaded
-    await bootstrapModel(threadId);
+    await bootstrapModel(threadId, model);
 
     return NextResponse.json({ success: true, status: "ready" });
   } catch (error) {

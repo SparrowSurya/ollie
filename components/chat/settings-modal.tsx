@@ -25,7 +25,57 @@ export default function SettingsModal({ isOpen, onClose }: Readonly<SettingsModa
     }
     return "lavender";
   });
+  const [runnableModels, setRunnableModels] = useState<string[]>([]);
+  const [defaultModel, setDefaultModelState] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("olly-default-model") || "";
+    }
+    return "";
+  });
+  const [activeModel, setActiveModelState] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("olly-active-model") || "";
+    }
+    return "";
+  });
   const modalRef = useRef<HTMLDivElement | null>(null);
+
+  // Fetch runnable models when settings modal opens
+  useEffect(() => {
+    const fetchRunnable = async () => {
+      try {
+        const response = await fetch("/api/models?downloaded=true");
+        if (response.ok) {
+          const data = await response.json();
+          const list = data.models || [];
+          setRunnableModels(list);
+
+          if (typeof window !== "undefined") {
+            const savedDefault = localStorage.getItem("olly-default-model") || "";
+            if (savedDefault && list.includes(savedDefault)) {
+              setDefaultModelState(savedDefault);
+            } else if (list.length > 0) {
+              setDefaultModelState(list[0]);
+              localStorage.setItem("olly-default-model", list[0]);
+            }
+
+            const savedActive = localStorage.getItem("olly-active-model") || "";
+            if (savedActive && list.includes(savedActive)) {
+              setActiveModelState(savedActive);
+            } else if (list.length > 0) {
+              setActiveModelState(list[0]);
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Settings: Failed to load runnable models:", error);
+      }
+    };
+
+    if (isOpen) {
+      fetchRunnable();
+    }
+  }, [isOpen]);
 
   // Close modal when pressing Escape key
   useEffect(() => {
@@ -56,6 +106,18 @@ export default function SettingsModal({ isOpen, onClose }: Readonly<SettingsModa
     setActiveAccent(newAccent);
     localStorage.setItem("olly-accent", newAccent);
     applyAccentColor(newAccent, activeTheme);
+  };
+
+  const handleDefaultModelChange = (val: string) => {
+    setDefaultModelState(val);
+    localStorage.setItem("olly-default-model", val);
+  };
+
+  const handleActiveModelChange = (val: string) => {
+    setActiveModelState(val);
+    localStorage.setItem("olly-active-model", val);
+    // Dispatch custom event to notify useChat hook
+    window.dispatchEvent(new Event("olly-active-model-changed"));
   };
 
   // Close modal if user clicks the backdrop overlay outside the card
@@ -159,13 +221,62 @@ export default function SettingsModal({ isOpen, onClose }: Readonly<SettingsModa
             )}
 
             {activeTab === "model" && (
-              <div className="flex flex-col gap-2 py-1">
-                <span className="text-xs font-bold uppercase tracking-wider text-base-content/60">
-                  Model Selection:
-                </span>
-                <p className="text-xs text-base-content/50 italic bg-base-300 p-3 rounded-lg border border-base-content/5">
-                  Currently running: gemma4:e2b (Local Ollama Host)
-                </p>
+              <div className="flex flex-col">
+                {/* Default Model Select Row */}
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 sm:gap-4 py-3 border-b border-base-content/5">
+                  <div className="flex flex-col text-left gap-0.5 max-w-xs">
+                    <span className="text-xs font-bold uppercase tracking-wider text-base-content/60">
+                      Default Model:
+                    </span>
+                    <span className="text-[10px] text-base-content/40 leading-relaxed font-sans select-none">
+                      The model used automatically when starting a new chat session.
+                    </span>
+                  </div>
+                  <select
+                    value={defaultModel}
+                    onChange={(e) => handleDefaultModelChange(e.target.value)}
+                    disabled={runnableModels.length === 0}
+                    className="select select-bordered select-xs sm:select-sm w-full sm:w-48 bg-base-300 font-sans cursor-pointer focus:outline-hidden"
+                  >
+                    {runnableModels.length === 0 ? (
+                      <option value="">No models installed</option>
+                    ) : (
+                      runnableModels.map((m) => (
+                        <option key={m} value={m}>
+                          {m}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                </div>
+
+                {/* Active Model Select Row */}
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 sm:gap-4 py-3 mt-1">
+                  <div className="flex flex-col text-left gap-0.5 max-w-xs">
+                    <span className="text-xs font-bold uppercase tracking-wider text-base-content/60">
+                      Active Model:
+                    </span>
+                    <span className="text-[10px] text-base-content/40 leading-relaxed font-sans select-none">
+                      The model currently processing responses in this chat thread.
+                    </span>
+                  </div>
+                  <select
+                    value={activeModel}
+                    onChange={(e) => handleActiveModelChange(e.target.value)}
+                    disabled={runnableModels.length === 0}
+                    className="select select-bordered select-xs sm:select-sm w-full sm:w-48 bg-base-300 font-sans cursor-pointer focus:outline-hidden"
+                  >
+                    {runnableModels.length === 0 ? (
+                      <option value="">No models installed</option>
+                    ) : (
+                      runnableModels.map((m) => (
+                        <option key={m} value={m}>
+                          {m}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                </div>
               </div>
             )}
 

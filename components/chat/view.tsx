@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import ChatInput from "./input";
 import MessageView from "./message-view";
 import ChatEmpty from "./empty";
@@ -11,6 +11,10 @@ export interface ChatViewProps {
   onSend: (text: string) => void;
   isGenerating?: boolean;
   isBootstrapping?: boolean;
+  isModelLoaded?: boolean;
+  defaultModel?: string;
+  runnableModels?: string[];
+  bootstrapChat?: (model: string, useAsDefault: boolean) => Promise<void>;
 }
 
 export default function ChatView({
@@ -18,9 +22,20 @@ export default function ChatView({
   onSend,
   isGenerating = false,
   isBootstrapping = false,
+  isModelLoaded = false,
+  defaultModel = "",
+  runnableModels = [],
+  bootstrapChat,
 }: Readonly<ChatViewProps>) {
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const isLockedRef = useRef<boolean>(true);
+
+  const [selectedModel, setSelectedModel] = useState<string>("");
+  const [useAsDefault, setUseAsDefault] = useState<boolean>(true);
+  const [toast, setToast] = useState<string | null>(null);
+
+  // Compute active selection during render to prevent synchronous effects
+  const activeSelected = selectedModel || defaultModel || (runnableModels.length > 0 ? runnableModels[0] : "");
 
   // Track user's manual scroll actions to toggle the auto-scroll lock
   const handleScroll = () => {
@@ -28,7 +43,8 @@ export default function ChatView({
     if (!container) return;
 
     // Lock auto-scroll only if the user is within 30px of the absolute bottom
-    const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 30;
+    const isAtBottom =
+      container.scrollHeight - container.scrollTop - container.clientHeight < 30;
     isLockedRef.current = isAtBottom;
   };
 
@@ -50,6 +66,24 @@ export default function ChatView({
     }
   }, [messages]);
 
+  const showToast = (message: string) => {
+    setToast(message);
+    setTimeout(() => {
+      setToast(null);
+    }, 3000);
+  };
+
+  const handleLoadModel = () => {
+    if (runnableModels.length === 0) {
+      showToast("No models installed. Please pull a model in Settings.");
+      return;
+    }
+    const targetModel = activeSelected;
+    if (!targetModel) return;
+    bootstrapChat?.(targetModel, useAsDefault);
+  };
+
+  // Centered Loader screen during pre-warming / bootstrapping
   if (isBootstrapping) {
     return (
       <div className="flex-1 flex flex-col justify-center items-center w-full h-full select-none">
@@ -61,7 +95,82 @@ export default function ChatView({
     );
   }
 
-  // If bootstrapping is active, we don't show the welcome empty state greeting
+  // Centered Selector Form for landing / fresh chat page (when model is not loaded yet)
+  if (!isModelLoaded) {
+    return (
+      <div className="flex-1 flex flex-col justify-center items-center w-full h-full max-w-md mx-auto px-6 select-none animate-fade-in relative">
+        <div className="bg-base-200 border border-base-content/10 rounded-2xl shadow-xl p-6 w-full flex flex-col gap-4 text-center">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-base-content/50">
+            Setup Chat Session
+          </h3>
+          <p className="text-xs text-base-content/50 leading-relaxed">
+            Select an installed local model to load and start your conversation.
+          </p>
+
+          {/* Model Selection Dropdown */}
+          <div className="flex flex-col text-left gap-1.5 mt-2">
+            <span className="text-[10px] font-bold uppercase tracking-wide text-base-content/40">
+              Choose Model:
+            </span>
+            <select
+              value={activeSelected}
+              onChange={(e) => setSelectedModel(e.target.value)}
+              disabled={runnableModels.length === 0}
+              className="select select-bordered select-xs sm:select-sm w-full bg-base-300 border-user-accent/30 focus:border-user-accent focus:ring-user-accent/30 focus:outline-hidden cursor-pointer"
+            >
+              {runnableModels.length === 0 ? (
+                <option value="">No models installed</option>
+              ) : (
+                runnableModels.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))
+              )}
+            </select>
+          </div>
+
+          {/* Set as Default Checkbox */}
+          {runnableModels.length > 0 && (
+            <label className="flex items-center gap-2 cursor-pointer mt-1 text-xs text-base-content/60 select-none">
+              <input
+                type="checkbox"
+                checked={useAsDefault}
+                onChange={(e) => setUseAsDefault(e.target.checked)}
+                className="checkbox checkbox-xs border-user-accent checked:bg-user-accent checked:border-user-accent focus:ring-1 focus:ring-user-accent/30 focus:outline-hidden"
+              />
+              <span>Set as default model</span>
+            </label>
+          )}
+
+          {/* Action Button */}
+          <button
+            onClick={handleLoadModel}
+            disabled={runnableModels.length === 0}
+            className="btn btn-xs sm:btn-sm shrink-0 border-user-accent bg-user-accent hover:bg-user-accent/85 hover:border-user-accent/85 text-base-100 uppercase tracking-wider font-bold mt-2 cursor-pointer"
+          >
+            Load Model
+          </button>
+
+          {runnableModels.length === 0 && (
+            <p className="text-[10px] text-warning/80 leading-relaxed border border-warning/10 bg-warning/5 p-3 rounded-lg mt-1 select-text">
+              Please click the settings icon in the top-right corner to pull a model first.
+            </p>
+          )}
+        </div>
+
+        {/* Floating warning toast if user attempts actions with no models */}
+        {toast && (
+          <div className="toast toast-bottom toast-center z-50">
+            <div className="alert alert-warning border border-user-accent/30 shadow-lg text-xs rounded-xl py-2 px-4">
+              <span>{toast}</span>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   const isEmpty = messages.length === 0;
 
   return (

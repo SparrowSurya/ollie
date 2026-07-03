@@ -1,21 +1,36 @@
 import { ChatOllama } from "@langchain/ollama";
 import { MessagesAnnotation, StateGraph, MemorySaver } from "@langchain/langgraph";
 import { HumanMessage } from "@langchain/core/messages";
+import { RunnableConfig } from "@langchain/core/runnables";
 import readEnv from "./config";
 
 // Read current environment host configuration
 const env = readEnv();
 
-// Initialize the ChatOllama model targeting our local model
-const model = new ChatOllama({
-  model: "gemma4:e2b",
-  baseUrl: env.ollamaHost,
-  think: true,
-});
+// Helper function to fetch the first available pulled model name dynamically
+async function getDefaultModel(): Promise<string> {
+  const res = await fetch(`${env.ollamaHost}/api/tags`);
+  if (!res.ok) {
+    throw new Error(`Failed to query Ollama service: ${res.statusText}`);
+  }
+  const data = await res.json();
+  if (!data.models || data.models.length === 0) {
+    throw new Error("No local models are installed on this Ollama host. Please pull a model first.");
+  }
+  return data.models[0].name;
+}
 
-// Node function: calls the model with the current messages state
-const callModel = async (state: typeof MessagesAnnotation.State) => {
-  const response = await model.invoke(state.messages);
+// Node function: calls the model dynamically with the configured model name
+const callModel = async (state: typeof MessagesAnnotation.State, config?: RunnableConfig) => {
+  const modelName = config?.configurable?.model_name || (await getDefaultModel());
+
+  const dynamicModel = new ChatOllama({
+    model: modelName,
+    baseUrl: env.ollamaHost,
+    think: true, // Native thinking support
+  });
+
+  const response = await dynamicModel.invoke(state.messages);
   return { messages: [response] };
 };
 
@@ -33,16 +48,18 @@ const app = workflow.compile({ checkpointer: new MemorySaver() });
  * This blocks until the model is fully loaded in VRAM/RAM.
  *
  * @param threadId The unique chat session identifier
+ * @param modelName Optional model name to pre-warm
  * @returns Promise<boolean> True when loaded
  */
-export async function bootstrapModel(threadId: string): Promise<boolean> {
+export async function bootstrapModel(threadId: string, modelName?: string): Promise<boolean> {
+  const targetModel = modelName || (await getDefaultModel());
   const response = await fetch(`${env.ollamaHost}/api/generate`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "gemma4:e2b",
+      model: targetModel,
       prompt: "",
       keep_alive: "5m", // Keep model warm in memory for 5 minutes of idle time
     }),
@@ -70,18 +87,27 @@ export async function bootstrapModel(threadId: string): Promise<boolean> {
  *
  * @param message The user's prompt message
  * @param threadId The session thread identifier for history retrieval
+ * @param modelName Optional model name to invoke
  * @returns ReadableStream of encoded string tokens
  */
-export function streamAgentResponse(message: string, threadId: string): ReadableStream {
+export function streamAgentResponse(message: string, threadId: string, modelName?: string): ReadableStream {
   const encoder = new TextEncoder();
 
   return new ReadableStream({
     async start(controller) {
       try {
+        const targetModel = modelName || (await getDefaultModel());
+
         // Run the graph and listen to stream events
         const eventStream = app.streamEvents(
           { messages: [new HumanMessage(message)] },
-          { version: "v2", configurable: { thread_id: threadId } }
+          {
+            version: "v2",
+            configurable: {
+              thread_id: threadId,
+              model_name: targetModel,
+            },
+          }
         );
 
         let hasStartedThinking = false;
