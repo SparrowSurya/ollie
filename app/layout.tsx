@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { JetBrains_Mono, Outfit } from "next/font/google";
+import GlobalSettings from "@/components/chat/global-settings";
 import "./globals.css";
 
 const jetbrainsMono = JetBrains_Mono({
@@ -33,7 +34,10 @@ export default async function RootLayout({
       className={`${outfit.variable} ${jetbrainsMono.variable} h-full antialiased`}
       style={{ colorScheme: theme === "latte" ? "light" : "dark" }}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        {children}
+        <GlobalSettings />
+      </body>
     </html>
   );
 }
