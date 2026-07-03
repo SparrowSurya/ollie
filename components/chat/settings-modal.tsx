@@ -140,7 +140,7 @@ export default function SettingsModal({ isOpen, onClose }: Readonly<SettingsModa
     >
       <div
         ref={modalRef}
-        className="bg-base-200 text-base-content rounded-2xl border border-base-content/10 w-full max-w-xl shadow-2xl p-6 overflow-hidden flex flex-col max-h-[90vh] select-none"
+        className="bg-base-200 text-base-content rounded-2xl border border-base-content/10 w-full max-w-4xl h-[440px] max-h-[90vh] shadow-2xl p-6 overflow-hidden flex flex-col select-none"
       >
         {/* Header: Title is always left-aligned, close button is on the right */}
         <div className="flex items-center justify-between border-b border-base-content/10 pb-4 mb-5 shrink-0">
@@ -160,10 +160,10 @@ export default function SettingsModal({ isOpen, onClose }: Readonly<SettingsModa
           </button>
         </div>
 
-        {/* Modal Body: Column flow on mobile, Row flow on desktop */}
-        <div className="flex flex-col md:flex-row gap-6 overflow-y-auto md:overflow-visible">
+        {/* Modal Body: Fixed-height flex wrapper */}
+        <div className="flex-1 flex flex-col md:flex-row gap-6 min-h-0">
           {/* Tabs Navigation: Horizontal scrollable on mobile, vertical sidebar on desktop */}
-          <div className="flex flex-row md:flex-col gap-1.5 overflow-x-auto md:overflow-visible pb-3 md:pb-0 border-b md:border-b-0 md:border-r border-base-content/10 pr-0 md:pr-4 shrink-0 justify-start md:justify-start w-full md:w-36 no-scrollbar">
+          <div className="flex flex-row md:flex-col gap-1.5 overflow-x-auto md:overflow-y-auto md:overflow-x-visible pb-3 md:pb-0 border-b md:border-b-0 md:border-r border-base-content/10 pr-0 md:pr-4 shrink-0 justify-start md:justify-start w-full md:w-36 no-scrollbar h-auto md:h-full">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
@@ -179,8 +179,8 @@ export default function SettingsModal({ isOpen, onClose }: Readonly<SettingsModa
             ))}
           </div>
 
-          {/* Right Content Pane */}
-          <div className="flex-1 min-h-40 select-text">
+          {/* Right Content Pane: Scrollable internally on overflow */}
+          <div className="flex-1 h-full overflow-y-auto pr-1 select-text">
             {activeTab === "apperence" && (
               <div className="flex flex-col gap-1">
                 {/* Theme Selector Row */}
