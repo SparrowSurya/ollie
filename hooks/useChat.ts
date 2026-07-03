@@ -16,6 +16,7 @@ export interface UseChatReturn {
   setActiveModel: (model: string) => void;
   errorToast: string | null;
   setErrorToast: (msg: string | null) => void;
+  isInitializing: boolean;
 }
 
 export function useChat(): UseChatReturn {
@@ -27,6 +28,7 @@ export function useChat(): UseChatReturn {
   const [defaultModel, setDefaultModel] = useState<string>("");
   const [runnableModels, setRunnableModels] = useState<string[]>([]);
   const [errorToast, setErrorToast] = useState<string | null>(null);
+  const [isInitializing, setIsInitializing] = useState<boolean>(true);
   const threadIdRef = useRef<string>("");
 
   // Setter helper that dispatches custom events to notify other layout parts
@@ -72,6 +74,8 @@ export function useChat(): UseChatReturn {
         }
       } catch (error) {
         console.error("Failed to load runnable models:", error);
+      } finally {
+        setIsInitializing(false);
       }
     };
 
@@ -280,5 +284,6 @@ export function useChat(): UseChatReturn {
     setActiveModel,
     errorToast,
     setErrorToast,
+    isInitializing,
   };
 }

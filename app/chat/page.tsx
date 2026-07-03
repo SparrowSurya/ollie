@@ -18,9 +18,10 @@ export default function ChatPage() {
     setActiveModel,
     errorToast,
     setErrorToast,
+    isInitializing,
   } = useChat();
 
-  // Register the global clipboard copy handler on component mount
+  // Register the global clipboard copy handler on component mount (MUST run before any conditional returns)
   useEffect(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (window as any).copyCode = (button: HTMLButtonElement) => {
@@ -47,6 +48,25 @@ export default function ChatPage() {
       }
     };
   }, []);
+
+  // Conditional rendering checks placed safely after all Hook declarations
+  if (isInitializing) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen w-screen bg-base-100 select-none animate-fade-in">
+        <div className="flex flex-col items-center gap-4 text-center">
+          <span className="loading loading-spinner loading-lg text-user-accent"></span>
+          <div className="flex flex-col gap-1">
+            <h3 className="font-mono font-bold text-sm tracking-wider uppercase text-base-content/80">
+              Initializing Olly
+            </h3>
+            <p className="text-xs text-base-content/40 italic font-sans">
+              Loading preferences and local tag registries...
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <main className="flex-1 flex flex-col h-screen max-h-screen overflow-hidden bg-base-100 py-6">
