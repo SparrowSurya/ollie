@@ -278,3 +278,13 @@ textarea:focus,
   outline-color: var(--user-accent) !important;
 }
 
+.checkbox-theme-adaptive:checked {
+  color: #eff1f5 !important;
+}
+
+[data-theme="mocha"] .checkbox-theme-adaptive:checked,
+[data-theme="macchiato"] .checkbox-theme-adaptive:checked,
+[data-theme="frappe"] .checkbox-theme-adaptive:checked {
+  color: #11111b !important;
+}
+

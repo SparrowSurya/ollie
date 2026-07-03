@@ -25,6 +25,7 @@ export default function ChatPage() {
     startNewChat,
     switchSession,
     deleteSession,
+    renameSession,
   } = useChatContext();
 
   if (isInitializing) {
@@ -53,6 +54,7 @@ export default function ChatPage() {
         activeSessionId={activeSessionId}
         onSelectSession={switchSession}
         onDeleteSession={deleteSession}
+        onRenameSession={renameSession}
         onNewChat={startNewChat}
       />
 

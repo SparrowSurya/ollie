@@ -42,6 +42,7 @@ export interface ChatContextType {
   startNewChat: () => void;
   switchSession: (sessionId: string) => Promise<void>;
   deleteSession: (sessionId: string) => Promise<void>;
+  renameSession: (sessionId: string, newTitle: string) => Promise<void>;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -178,6 +179,29 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       console.error("ChatContext: Failed to delete session:", e);
     }
   }, [activeSessionId, fetchSessions, startNewChat]);
+
+  const renameSession = useCallback(async (sessionId: string, newTitle: string) => {
+    try {
+      const response = await fetch("/api/sessions", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          id: sessionId,
+          title: newTitle,
+        }),
+      });
+
+      if (response.ok) {
+        await fetchSessions();
+      } else {
+        throw new Error("Failed to rename session");
+      }
+    } catch (e) {
+      console.error("ChatContext: Failed to rename session:", e);
+    }
+  }, [fetchSessions]);
 
   // Handler to bootstrap and warm up the selected model
   const bootstrapChat = useCallback(
@@ -368,6 +392,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         startNewChat,
         switchSession,
         deleteSession,
+        renameSession,
       }}
     >
       {children}
