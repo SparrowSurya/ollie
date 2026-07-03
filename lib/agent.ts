@@ -1,6 +1,6 @@
 import { ChatOllama } from "@langchain/ollama";
 import { MessagesAnnotation, StateGraph, MemorySaver } from "@langchain/langgraph";
-import { HumanMessage } from "@langchain/core/messages";
+import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { RunnableConfig } from "@langchain/core/runnables";
 import readEnv from "./config";
 
@@ -44,6 +44,7 @@ async function supportsThinking(modelName: string): Promise<boolean> {
 // Node function: calls the model dynamically with the configured model name
 const callModel = async (state: typeof MessagesAnnotation.State, config?: RunnableConfig) => {
   const modelName = config?.configurable?.model_name || (await getDefaultModel());
+  const customInstructions = config?.configurable?.custom_instructions;
   const hasThinking = await supportsThinking(modelName);
 
   const dynamicModel = new ChatOllama({
@@ -53,7 +54,12 @@ const callModel = async (state: typeof MessagesAnnotation.State, config?: Runnab
     ...(hasThinking ? { think: true } : {}),
   });
 
-  const response = await dynamicModel.invoke(state.messages);
+  let messages = state.messages;
+  if (customInstructions && typeof customInstructions === "string" && customInstructions.trim()) {
+    messages = [new SystemMessage(customInstructions), ...messages];
+  }
+
+  const response = await dynamicModel.invoke(messages);
   return { messages: [response] };
 };
 
@@ -113,7 +119,7 @@ export async function bootstrapModel(threadId: string, modelName?: string): Prom
  * @param modelName Optional model name to invoke
  * @returns ReadableStream of encoded string tokens
  */
-export function streamAgentResponse(message: string, threadId: string, modelName?: string): ReadableStream {
+export function streamAgentResponse(message: string, threadId: string, modelName?: string, customInstructions?: string): ReadableStream {
   const encoder = new TextEncoder();
 
   return new ReadableStream({
@@ -129,6 +135,7 @@ export function streamAgentResponse(message: string, threadId: string, modelName
             configurable: {
               thread_id: threadId,
               model_name: targetModel,
+              custom_instructions: customInstructions,
             },
           }
         );

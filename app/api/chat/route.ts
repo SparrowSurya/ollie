@@ -31,7 +31,7 @@ async function supportsChat(modelName: string): Promise<boolean> {
 
 export async function POST(req: Request) {
   try {
-    const { content, threadId, model } = await req.json();
+    const { content, threadId, model, customInstructions } = await req.json();
 
     if (!content) {
       return NextResponse.json({ error: "Missing content" }, { status: 400 });
@@ -50,7 +50,7 @@ export async function POST(req: Request) {
     }
 
     // Call the streamAgentResponse from lib/agent.ts
-    const stream = streamAgentResponse(content, activeThreadId, targetModel);
+    const stream = streamAgentResponse(content, activeThreadId, targetModel, customInstructions);
 
     return new Response(stream, {
       headers: {

@@ -211,6 +211,7 @@ export function useChat(): UseChatReturn {
             content: text,
             threadId: threadIdRef.current,
             model: activeModel,
+            customInstructions: localStorage.getItem("olly-custom-instructions") || "",
           }),
         });
 

@@ -9,7 +9,7 @@ export interface SettingsModalProps {
   onClose: () => void;
 }
 
-type TabId = "apperence" | "model" | "database";
+type TabId = "apperence" | "model" | "personal" | "database";
 
 export default function SettingsModal({ isOpen, onClose }: Readonly<SettingsModalProps>) {
   const [activeTab, setActiveTab] = useState<TabId>("model");
@@ -35,6 +35,12 @@ export default function SettingsModal({ isOpen, onClose }: Readonly<SettingsModa
   const [activeModel, setActiveModelState] = useState<string>(() => {
     if (typeof window !== "undefined") {
       return localStorage.getItem("olly-active-model") || "";
+    }
+    return "";
+  });
+  const [customInstructions, setCustomInstructionsState] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("olly-custom-instructions") || "";
     }
     return "";
   });
@@ -99,6 +105,7 @@ export default function SettingsModal({ isOpen, onClose }: Readonly<SettingsModa
       setExpandedModel(null);
       setDeletingModel(null);
       setCustomModelName("");
+      setCustomInstructionsState(localStorage.getItem("olly-custom-instructions") || "");
     }
   }, [isOpen]);
 
@@ -155,6 +162,11 @@ export default function SettingsModal({ isOpen, onClose }: Readonly<SettingsModa
     setActiveModelState(val);
     localStorage.setItem("olly-active-model", val);
     window.dispatchEvent(new Event("olly-active-model-changed"));
+  };
+
+  const handleCustomInstructionsChange = (val: string) => {
+    setCustomInstructionsState(val);
+    localStorage.setItem("olly-custom-instructions", val);
   };
 
   // Helper to fetch details on double-click
@@ -368,6 +380,7 @@ export default function SettingsModal({ isOpen, onClose }: Readonly<SettingsModa
   const tabs: { id: TabId; label: string }[] = [
     { id: "apperence", label: "Apperence" },
     { id: "model", label: "Model" },
+    { id: "personal", label: "Personal" },
     { id: "database", label: "Database" },
   ];
 
@@ -394,6 +407,8 @@ export default function SettingsModal({ isOpen, onClose }: Readonly<SettingsModa
               ? "Appearance Settings"
               : activeTab === "model"
               ? "Model Settings"
+              : activeTab === "personal"
+              ? "Personal Settings"
               : "Database Configuration"}
           </h3>
           <button
@@ -535,8 +550,9 @@ export default function SettingsModal({ isOpen, onClose }: Readonly<SettingsModa
                   </select>
                 </div>
 
+
                 {/* Installed Models Section */}
-                <div className="flex flex-col gap-1 py-3 border-t border-base-content/5 mt-3 select-none">
+                <div className="flex flex-col gap-1 py-3 border-t border-base-content/5 mt-2 select-none">
                   <span className="text-base font-bold uppercase tracking-wider text-base-content">
                     Installed Models:
                   </span>
@@ -730,6 +746,26 @@ export default function SettingsModal({ isOpen, onClose }: Readonly<SettingsModa
                     </button>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {activeTab === "personal" && (
+              <div className="flex flex-col gap-3.5 py-2 text-left">
+                <div className="flex flex-col gap-1">
+                  <span className="text-base font-bold uppercase tracking-wider text-base-content">
+                    Custom Instructions:
+                  </span>
+                  <span className="text-sm text-base-content/75 leading-relaxed font-sans select-none">
+                    What would you like Olly to know about you to provide better responses?
+                    These guidelines are injected automatically as system prompts on every query.
+                  </span>
+                </div>
+                <textarea
+                  value={customInstructions}
+                  onChange={(e) => handleCustomInstructionsChange(e.target.value)}
+                  placeholder="e.g. You are a senior software engineer. Reply with concise TypeScript code blocks, utilizing ESNext features. Keep prose explanation to a absolute minimum."
+                  className="textarea textarea-bordered bg-base-300 w-full h-[220px] text-sm font-sans focus:outline-hidden rounded-xl p-3 border-base-content/15 resize-none leading-relaxed mt-1 select-text"
+                />
               </div>
             )}
 
