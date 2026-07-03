@@ -49,6 +49,7 @@ const callModel = async (state: typeof MessagesAnnotation.State, config?: Runnab
   const dynamicModel = new ChatOllama({
     model: modelName,
     baseUrl: env.ollamaHost,
+    keepAlive: env.keepAlive,
     ...(hasThinking ? { think: true } : {}),
   });
 
@@ -83,7 +84,7 @@ export async function bootstrapModel(threadId: string, modelName?: string): Prom
     body: JSON.stringify({
       model: targetModel,
       prompt: "",
-      keep_alive: "5m", // Keep model warm in memory for 5 minutes of idle time
+      keep_alive: env.keepAlive,
     }),
   });
 
