@@ -26,7 +26,6 @@ marked.use({
             <button
               type="button"
               class="copy-button sticky top-2 pointer-events-auto opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity btn btn-square btn-xs bg-base-100 hover:bg-base-200 border border-base-content/15 shadow-xs flex items-center justify-center"
-              onclick="window.copyCode(this)"
               title="Copy code"
             >
               <img src="/resources/svg/copy-icon.svg" class="w-3.25 h-3.25 pointer-events-none" alt="Copy" />

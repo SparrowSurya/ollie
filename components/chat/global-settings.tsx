@@ -1,87 +1,36 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Settings, Download } from "lucide-react";
-import SettingsModal from "./settings-modal";
-import { applyAccentColor } from "@/lib/accent";
-
-interface PullState {
-  percent: number;
-  status: string;
-}
+import SettingsDialog from "../settings/settings-dialog";
+import { useOllama } from "@/contexts/OllamaContext";
 
 export default function GlobalSettings() {
+  const { pullingStatus, cancelPull, runnableModels } = useOllama();
+
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
-  const [activePulls, setActivePulls] = useState<Record<string, PullState>>({});
   const [completeToast, setCompleteToast] = useState<string | null>(null);
 
-  // Initialize accent color on mount and listen to runtime theme changes
+  // Track active pulls to detect completed ones
+  const prevPullsRef = useRef<string[]>([]);
+
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const savedAccent = localStorage.getItem("olly-accent") || "lavender";
-      const activeTheme = document.documentElement.getAttribute("data-theme") || "mocha";
-      applyAccentColor(savedAccent, activeTheme);
+    const currentPulls = Object.keys(pullingStatus);
+    
+    // Find pulls that were active in the previous tick but are no longer active now
+    const completed = prevPullsRef.current.filter(
+      (name) => !currentPulls.includes(name)
+    );
 
-      const observer = new MutationObserver((mutations) => {
-        mutations.forEach((mutation) => {
-          if (mutation.attributeName === "data-theme") {
-            const newTheme = document.documentElement.getAttribute("data-theme") || "mocha";
-            const currentAccent = localStorage.getItem("olly-accent") || "lavender";
-            applyAccentColor(currentAccent, newTheme);
-          }
-        });
-      });
-
-      observer.observe(document.documentElement, { attributes: true });
-      return () => observer.disconnect();
-    }
-  }, []);
-
-  // Listen to Ollama model download progress events
-  useEffect(() => {
-    const handlePullStart = (e: Event) => {
-      const customEvent = e as CustomEvent;
-      const { model } = customEvent.detail;
-      setActivePulls((prev) => ({
-        ...prev,
-        [model]: { percent: 0, status: "Starting..." },
-      }));
-    };
-
-    const handlePullProgress = (e: Event) => {
-      const customEvent = e as CustomEvent;
-      const { model, percent, status } = customEvent.detail;
-      setActivePulls((prev) => ({
-        ...prev,
-        [model]: { percent, status },
-      }));
-    };
-
-    const handlePullComplete = (e: Event) => {
-      const customEvent = e as CustomEvent;
-      const { model, success } = customEvent.detail;
-
-      setActivePulls((prev) => {
-        const next = { ...prev };
-        delete next[model];
-        return next;
-      });
-
-      if (success) {
-        setCompleteToast(`Model "${model}" successfully downloaded!`);
+    completed.forEach((name) => {
+      // If the model is now in the list of runnable models, it pulled successfully
+      if (runnableModels.includes(name)) {
+        setCompleteToast(`Model "${name}" successfully downloaded!`);
       }
-    };
+    });
 
-    window.addEventListener("olly-pull-start", handlePullStart);
-    window.addEventListener("olly-pull-progress", handlePullProgress);
-    window.addEventListener("olly-pull-complete", handlePullComplete);
-
-    return () => {
-      window.removeEventListener("olly-pull-start", handlePullStart);
-      window.removeEventListener("olly-pull-progress", handlePullProgress);
-      window.removeEventListener("olly-pull-complete", handlePullComplete);
-    };
-  }, []);
+    prevPullsRef.current = currentPulls;
+  }, [pullingStatus, runnableModels]);
 
   // Auto-dismiss the completed download toast after 4 seconds
   useEffect(() => {
@@ -93,7 +42,8 @@ export default function GlobalSettings() {
     }
   }, [completeToast]);
 
-  const hasActivePulls = Object.keys(activePulls).length > 0;
+  const activePullsEntries = Object.entries(pullingStatus);
+  const hasActivePulls = activePullsEntries.length > 0;
 
   return (
     <>
@@ -120,7 +70,7 @@ export default function GlobalSettings() {
               Active Downloads
             </h4>
             <div className="flex flex-col gap-3">
-              {Object.entries(activePulls).map(([name, progress]) => (
+              {activePullsEntries.map(([name, progress]) => (
                 <div key={name} className="flex flex-col gap-1 text-left">
                   <div className="flex justify-between items-center text-[10px] font-mono font-bold text-base-content/80">
                     <span className="truncate max-w-40" title={name}>
@@ -139,13 +89,7 @@ export default function GlobalSettings() {
                     </span>
                     <button
                       type="button"
-                      onClick={() => {
-                        window.dispatchEvent(
-                          new CustomEvent("olly-pull-cancel-request", {
-                            detail: { model: name },
-                          })
-                        );
-                      }}
+                      onClick={() => cancelPull(name)}
                       className="btn btn-xs btn-ghost hover:bg-error/15 hover:text-error text-base-content/60 rounded-md text-[8.5px] font-bold uppercase h-4 min-h-0 py-0 px-1.5 shrink-0"
                     >
                       Cancel
@@ -168,7 +112,7 @@ export default function GlobalSettings() {
       </button>
 
       {/* Centered Floating Settings Modal Overlay */}
-      <SettingsModal
+      <SettingsDialog
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
       />

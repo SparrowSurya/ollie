@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
-import readEnv from "@/lib/config";
-
-const env = readEnv();
+import { OllamaService } from "@/lib/services/ollama";
 
 // Helper to format bytes to human readable sizes
 function formatBytes(bytes: number): string {
@@ -22,34 +20,21 @@ export async function GET(req: Request) {
     }
 
     // 1. Fetch metadata details from Ollama /api/show
-    const showRes = await fetch(`${env.ollamaHost}/api/show`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model }),
-    });
-
-    if (!showRes.ok) {
-      throw new Error(`Ollama show failed: ${showRes.statusText}`);
-    }
-
-    const showData = await showRes.json();
+    const showData = await OllamaService.showModel(model);
 
     // 2. Fetch loaded models from Ollama /api/ps to verify loaded status
     let isLoaded = false;
     let sizeInRam = "0 B";
 
     try {
-      const psRes = await fetch(`${env.ollamaHost}/api/ps`);
-      if (psRes.ok) {
-        const psData = await psRes.json();
-        const loadedMatch = psData.models?.find(
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (m: any) => m.name === model || m.model === model
-        );
-        if (loadedMatch) {
-          isLoaded = true;
-          sizeInRam = formatBytes(loadedMatch.size_vram || loadedMatch.size || 0);
-        }
+      const psData = await OllamaService.ps();
+      const loadedMatch = psData.models?.find(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (m: any) => m.name === model || m.model === model
+      );
+      if (loadedMatch) {
+        isLoaded = true;
+        sizeInRam = formatBytes(loadedMatch.size_vram || loadedMatch.size || 0);
       }
     } catch (e) {
       console.warn("Failed to check loaded status from /api/ps:", e);
@@ -58,16 +43,13 @@ export async function GET(req: Request) {
     // 3. Resolve exact file size on disk from Ollama tags registry
     let size = 0;
     try {
-      const tagsRes = await fetch(`${env.ollamaHost}/api/tags`);
-      if (tagsRes.ok) {
-        const tagsData = await tagsRes.json();
-        const matched = tagsData.models?.find(
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (m: any) => m.name === model || m.model === model
-        );
-        if (matched) {
-          size = matched.size || 0;
-        }
+      const tagsData = await OllamaService.getTags();
+      const matched = tagsData.models?.find(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (m: any) => m.name === model || m.model === model
+      );
+      if (matched) {
+        size = matched.size || 0;
       }
     } catch (e) {
       console.warn("Failed to fetch model size from /api/tags:", e);

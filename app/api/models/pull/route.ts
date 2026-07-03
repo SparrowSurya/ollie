@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
-import readEnv from "@/lib/config";
-
-const env = readEnv();
+import { OllamaService } from "@/lib/services/ollama";
 
 export async function POST(req: Request) {
   try {
@@ -17,19 +15,7 @@ export async function POST(req: Request) {
       abortController.abort();
     });
 
-    const ollamaRes = await fetch(`${env.ollamaHost}/api/pull`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ name: model, stream: true }),
-      signal: abortController.signal,
-    });
-
-    if (!ollamaRes.ok) {
-      const errText = await ollamaRes.text().catch(() => "");
-      throw new Error(errText || `Ollama failed to start pull: ${ollamaRes.statusText}`);
-    }
+    const ollamaRes = await OllamaService.pullStream(model, abortController.signal);
 
     if (!ollamaRes.body) {
       throw new Error("No response body from Ollama");

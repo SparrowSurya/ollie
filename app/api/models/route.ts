@@ -1,44 +1,21 @@
 import { NextResponse } from "next/server";
-import readEnv from "@/lib/config";
-
-const env = readEnv();
+import { OllamaService } from "@/lib/services/ollama";
 
 // Helper to determine if a local model supports chat completions
 async function supportsChat(modelName: string): Promise<boolean> {
   try {
-    const res = await fetch(`${env.ollamaHost}/api/show`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ model: modelName }),
-    });
-
-    if (!res.ok) return false;
-    const data = await res.json();
-
+    const data = await OllamaService.showModel(modelName);
     // Verify chat capability using Ollama's capabilities array
     const capabilities = data.capabilities || [];
-    if (!capabilities.includes("completion")) {
-      return false;
-    }
-    return true;
+    return capabilities.includes("completion");
   } catch {
     return false;
   }
 }
 
-export async function GET(req: Request) {
+export async function GET() {
   try {
-    const res = await fetch(`${env.ollamaHost}/api/tags`, {
-      signal: AbortSignal.timeout(3000),
-    });
-
-    if (!res.ok) {
-      throw new Error(`Failed to fetch models from Ollama: ${res.statusText}`);
-    }
-
-    const data = await res.json();
+    const data = await OllamaService.getTags(AbortSignal.timeout(3000));
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const rawPulledModels = data.models?.map((m: any) => m.name) || [];
 

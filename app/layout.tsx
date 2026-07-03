@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { JetBrains_Mono, Outfit } from "next/font/google";
 import GlobalSettings from "@/components/chat/global-settings";
+import { SettingsProvider } from "@/contexts/SettingsContext";
+import { OllamaProvider } from "@/contexts/OllamaContext";
 import "./globals.css";
 
 const jetbrainsMono = JetBrains_Mono({
@@ -35,9 +37,14 @@ export default async function RootLayout({
       style={{ colorScheme: theme === "latte" ? "light" : "dark" }}
     >
       <body className="min-h-full flex flex-col">
-        {children}
-        <GlobalSettings />
+        <SettingsProvider>
+          <OllamaProvider>
+            {children}
+            <GlobalSettings />
+          </OllamaProvider>
+        </SettingsProvider>
       </body>
     </html>
   );
 }
+

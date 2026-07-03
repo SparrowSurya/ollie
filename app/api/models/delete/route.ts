@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
-import readEnv from "@/lib/config";
-
-const env = readEnv();
+import { OllamaService } from "@/lib/services/ollama";
 
 export async function POST(req: Request) {
   try {
@@ -10,20 +8,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing model name" }, { status: 400 });
     }
 
-    const ollamaRes = await fetch(`${env.ollamaHost}/api/delete`, {
-      method: "DELETE",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ name: model }),
-    });
-
-    if (!ollamaRes.ok) {
-      const errText = await ollamaRes.text().catch(() => "");
-      throw new Error(errText || `Ollama delete failed: ${ollamaRes.statusText}`);
-    }
+    await OllamaService.delete(model);
 
     return NextResponse.json({ success: true });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
     console.error("Error in /api/models/delete:", error);
     return NextResponse.json(

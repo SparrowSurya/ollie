@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { ChatUiMessage } from "@/components/chat";
+import { useOllama } from "@/contexts/OllamaContext";
+import { useSettings } from "@/contexts/SettingsContext";
 
 export interface UseChatReturn {
   messages: ChatUiMessage[];
@@ -20,121 +22,27 @@ export interface UseChatReturn {
 }
 
 export function useChat(): UseChatReturn {
+  const {
+    runnableModels,
+    defaultModel,
+    activeModel,
+    isInitializing,
+    setActiveModel,
+    setDefaultModel,
+  } = useOllama();
+
+  const { customInstructions } = useSettings();
+
   const [messages, setMessages] = useState<ChatUiMessage[]>([]);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [isBootstrapping, setIsBootstrapping] = useState<boolean>(false);
   const [isModelLoaded, setIsModelLoaded] = useState<boolean>(false);
-  const [activeModel, setActiveModelState] = useState<string>("");
-  const [defaultModel, setDefaultModel] = useState<string>("");
-  const [runnableModels, setRunnableModels] = useState<string[]>([]);
   const [errorToast, setErrorToast] = useState<string | null>(null);
-  const [isInitializing, setIsInitializing] = useState<boolean>(true);
+
   const threadIdRef = useRef<string>("");
 
-  // Setter helper that dispatches custom events to notify other layout parts
-  const setActiveModel = useCallback((modelName: string) => {
-    setActiveModelState(modelName);
-    localStorage.setItem("olly-active-model", modelName);
-    window.dispatchEvent(new Event("olly-active-model-changed"));
-  }, []);
-
-  // Fetch pulled (downloaded) models and initialize preferences on mount
   useEffect(() => {
-    const activeThreadId = crypto.randomUUID();
-    threadIdRef.current = activeThreadId;
-
-    const fetchModels = async () => {
-      try {
-        const response = await fetch("/api/models?downloaded=true");
-        if (response.ok) {
-          const data = await response.json();
-          const list: string[] = data.models || [];
-
-          const modelsList: string[] = list;
-          setRunnableModels(modelsList);
-
-          // Resolve default model from localStorage or use the first model in list
-          const savedDefault = localStorage.getItem("olly-default-model") || "";
-          if (savedDefault && modelsList.includes(savedDefault)) {
-            setDefaultModel(savedDefault);
-          } else if (modelsList.length > 0) {
-            setDefaultModel(modelsList[0]);
-            localStorage.setItem("olly-default-model", modelsList[0]);
-          }
-
-          // Initial active model fallback
-          const savedActive = localStorage.getItem("olly-active-model") || "";
-          if (savedActive && modelsList.includes(savedActive)) {
-            setActiveModelState(savedActive);
-          } else if (savedDefault && modelsList.includes(savedDefault)) {
-            setActiveModelState(savedDefault);
-          } else if (modelsList.length > 0) {
-            setActiveModelState(modelsList[0]);
-          }
-        }
-      } catch (error) {
-        console.error("Failed to load runnable models:", error);
-      } finally {
-        setIsInitializing(false);
-      }
-    };
-
-    fetchModels();
-  }, []);
-
-  // Listen to external active model changes (e.g. from the settings modal)
-  useEffect(() => {
-    const handleActiveModelChanged = () => {
-      const currentActive = localStorage.getItem("olly-active-model") || "";
-      if (currentActive) {
-        setActiveModelState(currentActive);
-      }
-    };
-
-    window.addEventListener("olly-active-model-changed", handleActiveModelChanged);
-    return () => {
-      window.removeEventListener("olly-active-model-changed", handleActiveModelChanged);
-    };
-  }, []);
-
-  // Listen to external runnable models list changes (e.g. from pulling/deleting in Settings modal)
-  useEffect(() => {
-    const handleRunnableChanged = async () => {
-      try {
-        const response = await fetch("/api/models?downloaded=true");
-        if (response.ok) {
-          const data = await response.json();
-          const list = data.models || [];
-
-          const modelsList = list;
-          setRunnableModels(modelsList);
-
-          // If current active model was deleted, reset active model state
-          const savedActive = localStorage.getItem("olly-active-model") || "";
-          if (savedActive && !modelsList.includes(savedActive)) {
-            const nextActive = modelsList.length > 0 ? modelsList[0] : "";
-            setActiveModelState(nextActive);
-            localStorage.setItem("olly-active-model", nextActive);
-            window.dispatchEvent(new Event("olly-active-model-changed"));
-          }
-
-          // If default model was deleted, reset default model state
-          const savedDefault = localStorage.getItem("olly-default-model") || "";
-          if (savedDefault && !modelsList.includes(savedDefault)) {
-            const nextDefault = modelsList.length > 0 ? modelsList[0] : "";
-            setDefaultModel(nextDefault);
-            localStorage.setItem("olly-default-model", nextDefault);
-          }
-        }
-      } catch (error) {
-        console.error("Failed to sync runnable models list:", error);
-      }
-    };
-
-    window.addEventListener("olly-runnable-models-changed", handleRunnableChanged);
-    return () => {
-      window.removeEventListener("olly-runnable-models-changed", handleRunnableChanged);
-    };
+    threadIdRef.current = crypto.randomUUID();
   }, []);
 
   // Handler to bootstrap and warm up the selected model
@@ -147,7 +55,6 @@ export function useChat(): UseChatReturn {
 
       if (useAsDefault) {
         setDefaultModel(selectedModel);
-        localStorage.setItem("olly-default-model", selectedModel);
       }
 
       try {
@@ -176,7 +83,7 @@ export function useChat(): UseChatReturn {
         setIsBootstrapping(false);
       }
     },
-    [isBootstrapping, setActiveModel]
+    [isBootstrapping, setActiveModel, setDefaultModel]
   );
 
   const sendMessage = useCallback(
@@ -215,7 +122,7 @@ export function useChat(): UseChatReturn {
             content: text,
             threadId: threadIdRef.current,
             model: activeModel,
-            customInstructions: localStorage.getItem("olly-custom-instructions") || "",
+            customInstructions: customInstructions || "",
           }),
         });
 
@@ -268,7 +175,7 @@ export function useChat(): UseChatReturn {
         setIsGenerating(false);
       }
     },
-    [isGenerating, isBootstrapping, isModelLoaded, activeModel]
+    [isGenerating, isBootstrapping, isModelLoaded, activeModel, customInstructions]
   );
 
   return {
