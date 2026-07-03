@@ -1,8 +1,9 @@
 import { ChatOllama } from "@langchain/ollama";
 import { MessagesAnnotation, StateGraph, MemorySaver } from "@langchain/langgraph";
-import { HumanMessage, SystemMessage } from "@langchain/core/messages";
+import { HumanMessage, SystemMessage, AIMessage } from "@langchain/core/messages";
 import { RunnableConfig } from "@langchain/core/runnables";
 import readEnv from "./config";
+import { createSession, updateSessionTitle, updateSessionModel, getMessages, saveMessage } from "./db";
 
 // Read current environment host configuration
 const env = readEnv();
@@ -127,7 +128,35 @@ export function streamAgentResponse(message: string, threadId: string, modelName
       try {
         const targetModel = modelName || (await getDefaultModel());
 
-        // Run the graph and listen to stream events
+        // 1. Ensure the session exists in the database
+        await createSession(threadId, "New Chat", targetModel);
+        // Also update session model in case they changed the active model
+        await updateSessionModel(threadId, targetModel);
+
+        // 2. Preload history if the graph's memory was wiped (e.g. server restart)
+        const state = await app.getState({ configurable: { thread_id: threadId } });
+        if (!state.values || !state.values.messages || state.values.messages.length === 0) {
+          const dbMessages = await getMessages(threadId);
+          if (dbMessages.length > 0) {
+            const langchainMessages = dbMessages.map((m) => {
+              if (m.role === "user") {
+                return new HumanMessage({ content: m.content, id: m.id });
+              } else {
+                return new AIMessage({ content: m.content, id: m.id });
+              }
+            });
+            await app.updateState(
+              { configurable: { thread_id: threadId } },
+              { messages: langchainMessages }
+            );
+          }
+        }
+
+        // 3. Save the *new* user message to the database
+        const userMsgId = crypto.randomUUID();
+        await saveMessage(userMsgId, threadId, "user", message);
+
+        // 4. Run the graph and listen to stream events
         const eventStream = app.streamEvents(
           { messages: [new HumanMessage(message)] },
           {
@@ -140,6 +169,7 @@ export function streamAgentResponse(message: string, threadId: string, modelName
           }
         );
 
+        let assistantContent = "";
         let hasStartedThinking = false;
         let hasFinishedThinking = false;
 
@@ -156,19 +186,36 @@ export function streamAgentResponse(message: string, threadId: string, modelName
             if (reasoning && typeof reasoning === "string" && reasoning) {
               if (!hasStartedThinking) {
                 controller.enqueue(encoder.encode("<think>\n"));
+                assistantContent += "<think>\n";
                 hasStartedThinking = true;
               }
               controller.enqueue(encoder.encode(reasoning));
+              assistantContent += reasoning;
             } else if (chunk && typeof chunk.content === "string" && chunk.content) {
               // If we were thinking but haven't written the closing tag, write it now
               if (hasStartedThinking && !hasFinishedThinking) {
                 controller.enqueue(encoder.encode("\n</think>\n"));
+                assistantContent += "\n</think>\n";
                 hasFinishedThinking = true;
               }
               controller.enqueue(encoder.encode(chunk.content));
+              assistantContent += chunk.content;
             }
           }
         }
+
+        // 5. Save the assistant's complete generated message to the database
+        const assistantMsgId = crypto.randomUUID();
+        await saveMessage(assistantMsgId, threadId, "assistant", assistantContent, targetModel);
+
+        // 6. Auto-generate title if this is the first message in this session
+        const dbMessages = await getMessages(threadId);
+        if (dbMessages.length === 2) {
+          const firstQuery = dbMessages[0].content;
+          const generatedTitle = firstQuery.slice(0, 40) + (firstQuery.length > 40 ? "..." : "");
+          await updateSessionTitle(threadId, generatedTitle);
+        }
+
         controller.close();
       } catch (error) {
         console.error("Error in streamAgentResponse:", error);

@@ -1,9 +1,26 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { ChatUiMessage } from "@/components/chat";
 import { useOllama } from "@/contexts/OllamaContext";
 import { useSettings } from "@/contexts/SettingsContext";
+
+export interface DbSession {
+  id: string;
+  title: string;
+  model: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface DbMessageResponse {
+  id: string;
+  sessionId: string;
+  role: "user" | "assistant";
+  content: string;
+  modelName?: string;
+  timestamp: string | Date;
+}
 
 export interface UseChatReturn {
   messages: ChatUiMessage[];
@@ -19,6 +36,12 @@ export interface UseChatReturn {
   errorToast: string | null;
   setErrorToast: (msg: string | null) => void;
   isInitializing: boolean;
+  // History session properties
+  sessions: DbSession[];
+  activeSessionId: string;
+  startNewChat: () => void;
+  switchSession: (sessionId: string) => Promise<void>;
+  deleteSession: (sessionId: string) => Promise<void>;
 }
 
 export function useChat(): UseChatReturn {
@@ -39,11 +62,120 @@ export function useChat(): UseChatReturn {
   const [isModelLoaded, setIsModelLoaded] = useState<boolean>(false);
   const [errorToast, setErrorToast] = useState<string | null>(null);
 
-  const threadIdRef = useRef<string>("");
+  // History session states
+  const [sessions, setSessions] = useState<DbSession[]>([]);
+  const [activeSessionId, setActiveSessionId] = useState<string>("");
 
-  useEffect(() => {
-    threadIdRef.current = crypto.randomUUID();
+  const fetchSessions = useCallback(async () => {
+    try {
+      const response = await fetch("/api/sessions");
+      if (response.ok) {
+        const data = await response.json();
+        setSessions(data.sessions || []);
+      }
+    } catch (e) {
+      console.error("useChat: Failed to fetch sessions:", e);
+    }
   }, []);
+
+  // Fetch sessions and load the most recent session on mount
+  useEffect(() => {
+    const initSessions = async () => {
+      try {
+        const response = await fetch("/api/sessions");
+        if (response.ok) {
+          const data = await response.json();
+          const list = data.sessions || [];
+          setSessions(list);
+
+          if (list.length > 0) {
+            // Load the most recent session automatically
+            const latestSession = list[0];
+            setActiveSessionId(latestSession.id);
+
+            const msgResponse = await fetch(`/api/sessions/messages?id=${latestSession.id}`);
+            if (msgResponse.ok) {
+              const msgData = await msgResponse.json();
+              setMessages(
+                (msgData.messages || []).map((m: DbMessageResponse) => ({
+                  id: m.id,
+                  role: m.role,
+                  content: m.content,
+                  timestamp: new Date(m.timestamp),
+                  modelName: m.modelName || undefined,
+                }))
+              );
+              if (msgData.model) {
+                setActiveModel(msgData.model);
+              }
+              setIsModelLoaded(true);
+            }
+          } else {
+            // No sessions, start a fresh session
+            setActiveSessionId(crypto.randomUUID());
+          }
+        } else {
+          // If the sessions response fails (e.g. 500 error), start a fresh session
+          setActiveSessionId(crypto.randomUUID());
+        }
+      } catch (e) {
+        console.error("useChat: Failed to load initial sessions:", e);
+        setActiveSessionId(crypto.randomUUID());
+      }
+    };
+
+    initSessions();
+  }, [setActiveModel]);
+
+  const startNewChat = useCallback(() => {
+    setActiveSessionId(crypto.randomUUID());
+    setMessages([]);
+    setIsModelLoaded(false);
+  }, []);
+
+  const switchSession = useCallback(async (sessionId: string) => {
+    try {
+      setActiveSessionId(sessionId);
+      const response = await fetch(`/api/sessions/messages?id=${sessionId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setMessages(
+          (data.messages || []).map((m: DbMessageResponse) => ({
+            id: m.id,
+            role: m.role,
+            content: m.content,
+            timestamp: new Date(m.timestamp),
+            modelName: m.modelName || undefined,
+          }))
+        );
+        if (data.model) {
+          setActiveModel(data.model);
+        }
+        setIsModelLoaded(true);
+      }
+    } catch (e) {
+      console.error("useChat: Failed to switch session:", e);
+    }
+  }, [setActiveModel]);
+
+  const deleteSession = useCallback(async (sessionId: string) => {
+    try {
+      const response = await fetch(`/api/sessions?id=${sessionId}`, {
+        method: "DELETE",
+      });
+
+      if (response.ok) {
+        await fetchSessions();
+        if (sessionId === activeSessionId) {
+          startNewChat();
+        }
+      } else {
+        throw new Error("Failed to delete session");
+      }
+    } catch (e) {
+      console.error("useChat: Failed to delete session:", e);
+    }
+  }, [activeSessionId, fetchSessions, startNewChat]);
 
   // Handler to bootstrap and warm up the selected model
   const bootstrapChat = useCallback(
@@ -64,7 +196,7 @@ export function useChat(): UseChatReturn {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            threadId: threadIdRef.current,
+            threadId: activeSessionId,
             model: selectedModel,
           }),
         });
@@ -75,6 +207,8 @@ export function useChat(): UseChatReturn {
         }
 
         setIsModelLoaded(true);
+        // Refresh sidebar sessions to register the newly active thread if it was just loaded
+        await fetchSessions();
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (error: any) {
         console.error("Error bootstrapping model:", error);
@@ -83,7 +217,7 @@ export function useChat(): UseChatReturn {
         setIsBootstrapping(false);
       }
     },
-    [isBootstrapping, setActiveModel, setDefaultModel]
+    [activeSessionId, isBootstrapping, setActiveModel, setDefaultModel, fetchSessions]
   );
 
   const sendMessage = useCallback(
@@ -113,6 +247,9 @@ export function useChat(): UseChatReturn {
       setMessages((prev) => [...prev, userMessage, assistantMessagePlaceholder]);
 
       try {
+        // Sync sessions in sidebar immediately so it lists this session
+        await fetchSessions();
+
         const response = await fetch("/api/chat", {
           method: "POST",
           headers: {
@@ -120,7 +257,7 @@ export function useChat(): UseChatReturn {
           },
           body: JSON.stringify({
             content: text,
-            threadId: threadIdRef.current,
+            threadId: activeSessionId,
             model: activeModel,
             customInstructions: customInstructions || "",
           }),
@@ -155,6 +292,10 @@ export function useChat(): UseChatReturn {
             })
           );
         }
+
+        // Stream completed successfully, reload sessions to capture potential auto-title or updated order
+        await fetchSessions();
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (error: any) {
         console.error("Streaming error:", error);
@@ -175,8 +316,29 @@ export function useChat(): UseChatReturn {
         setIsGenerating(false);
       }
     },
-    [isGenerating, isBootstrapping, isModelLoaded, activeModel, customInstructions]
+    [isGenerating, isBootstrapping, isModelLoaded, activeModel, activeSessionId, customInstructions, fetchSessions]
   );
+
+  const changeActiveModel = useCallback(async (modelName: string) => {
+    setActiveModel(modelName);
+    if (!activeSessionId) return;
+
+    try {
+      await fetch("/api/sessions", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          id: activeSessionId,
+          model: modelName,
+        }),
+      });
+      await fetchSessions();
+    } catch (e) {
+      console.error("useChat: Failed to update session model in DB:", e);
+    }
+  }, [activeSessionId, fetchSessions, setActiveModel]);
 
   return {
     messages,
@@ -188,9 +350,14 @@ export function useChat(): UseChatReturn {
     runnableModels,
     bootstrapChat,
     sendMessage,
-    setActiveModel,
+    setActiveModel: changeActiveModel,
     errorToast,
     setErrorToast,
     isInitializing,
+    sessions,
+    activeSessionId,
+    startNewChat,
+    switchSession,
+    deleteSession,
   };
 }

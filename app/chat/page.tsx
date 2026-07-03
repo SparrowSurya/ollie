@@ -2,6 +2,7 @@
 
 import React from "react";
 import ChatView from "@/components/chat/view";
+import Sidebar from "@/components/chat/sidebar";
 import { useChat } from "@/hooks/useChat";
 
 export default function ChatPage() {
@@ -19,9 +20,13 @@ export default function ChatPage() {
     errorToast,
     setErrorToast,
     isInitializing,
+    sessions,
+    activeSessionId,
+    startNewChat,
+    switchSession,
+    deleteSession,
   } = useChat();
 
-  // Conditional rendering checks placed safely after all Hook declarations
   if (isInitializing) {
     return (
       <div className="flex flex-col items-center justify-center h-screen w-screen bg-base-100 select-none animate-fade-in">
@@ -41,23 +46,35 @@ export default function ChatPage() {
   }
 
   return (
-    <main className="flex-1 flex flex-col h-screen max-h-screen overflow-hidden bg-base-100 py-6">
-      <div className="flex-1 min-h-0 w-full">
-        <ChatView
-          messages={messages}
-          onSend={sendMessage}
-          isGenerating={isGenerating}
-          isBootstrapping={isBootstrapping}
-          isModelLoaded={isModelLoaded}
-          activeModel={activeModel}
-          defaultModel={defaultModel}
-          runnableModels={runnableModels}
-          bootstrapChat={bootstrapChat}
-          setActiveModel={setActiveModel}
-          errorToast={errorToast}
-          setErrorToast={setErrorToast}
-        />
-      </div>
-    </main>
+    <div className="flex h-screen w-screen overflow-hidden bg-base-100 font-sans">
+      {/* Thread list sidebar on the left */}
+      <Sidebar
+        sessions={sessions}
+        activeSessionId={activeSessionId}
+        onSelectSession={switchSession}
+        onDeleteSession={deleteSession}
+        onNewChat={startNewChat}
+      />
+
+      {/* Main chat viewport on the right */}
+      <main className="flex-1 flex flex-col h-full min-h-0 overflow-hidden py-6 relative">
+        <div className="flex-1 min-h-0 w-full">
+          <ChatView
+            messages={messages}
+            onSend={sendMessage}
+            isGenerating={isGenerating}
+            isBootstrapping={isBootstrapping}
+            isModelLoaded={isModelLoaded}
+            activeModel={activeModel}
+            defaultModel={defaultModel}
+            runnableModels={runnableModels}
+            bootstrapChat={bootstrapChat}
+            setActiveModel={setActiveModel}
+            errorToast={errorToast}
+            setErrorToast={setErrorToast}
+          />
+        </div>
+      </main>
+    </div>
   );
 }

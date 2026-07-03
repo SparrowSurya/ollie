@@ -1,0 +1,31 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "./generated/prod"
+}
+
+model Session {
+  id        String    @id
+  title     String
+  model     String
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  messages  Message[]
+
+  @@map("sessions")
+}
+
+model Message {
+  id        String   @id
+  sessionId String   @map("session_id")
+  role      String
+  content   String
+  modelName String?  @map("model_name")
+  timestamp DateTime @default(now())
+  session   Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@map("messages")
+}
