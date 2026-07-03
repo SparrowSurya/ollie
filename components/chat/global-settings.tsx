@@ -16,7 +16,7 @@ export default function GlobalSettings() {
 
   useEffect(() => {
     const currentPulls = Object.keys(pullingStatus);
-    
+
     // Find pulls that were active in the previous tick but are no longer active now
     const completed = prevPullsRef.current.filter(
       (name) => !currentPulls.includes(name)
@@ -84,7 +84,7 @@ export default function GlobalSettings() {
                     max="100"
                   ></progress>
                   <div className="flex justify-between items-center mt-0.5">
-                    <span className="text-[9px] text-base-content/50 italic truncate max-w-[170px]">
+                    <span className="text-[9px] text-base-content/50 italic truncate max-w-42.5">
                       {progress.status}
                     </span>
                     <button
