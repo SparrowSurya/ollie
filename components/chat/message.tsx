@@ -6,12 +6,14 @@ export interface ChatMessageProps {
   role: MessageRole;
   content: string;
   pendingStatus?: "loading" | "generating";
+  modelName?: string;
 }
 
 export default function ChatMessage({
   role,
   content,
   pendingStatus,
+  modelName,
 }: Readonly<ChatMessageProps>) {
   const isUser = role === "user";
 
@@ -48,6 +50,11 @@ export default function ChatMessage({
   // Assistant response is raw text flowing top-down on the left, displaying optional thinking process
   return (
     <div className="flex flex-col justify-start w-full my-4 font-sans text-base leading-relaxed text-base-content max-w-full">
+      {modelName && (
+        <span className="text-xs font-mono font-bold tracking-wider text-base-content/50 mb-1.5 block select-none uppercase">
+          {modelName}
+        </span>
+      )}
       {hasThinking && (
         <details
           open={isStillThinking}

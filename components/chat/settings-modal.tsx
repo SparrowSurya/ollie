@@ -12,7 +12,7 @@ export interface SettingsModalProps {
 type TabId = "apperence" | "model" | "database";
 
 export default function SettingsModal({ isOpen, onClose }: Readonly<SettingsModalProps>) {
-  const [activeTab, setActiveTab] = useState<TabId>("apperence");
+  const [activeTab, setActiveTab] = useState<TabId>("model");
   const [activeTheme, setActiveTheme] = useState<string>(() => {
     if (typeof window !== "undefined") {
       return document.documentElement.getAttribute("data-theme") || "mocha";

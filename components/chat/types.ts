@@ -5,4 +5,5 @@ export interface ChatUiMessage {
   role: MessageRole;
   content: string;
   timestamp: Date;
+  modelName?: string;
 }

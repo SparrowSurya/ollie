@@ -44,6 +44,7 @@ export default function MessageView({
             role={msg.role}
             content={msg.content}
             pendingStatus={isGeneratingPlaceholder ? "generating" : undefined}
+            modelName={msg.modelName}
           />
         );
       })}

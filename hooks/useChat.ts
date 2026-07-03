@@ -153,6 +153,7 @@ export function useChat(): UseChatReturn {
         role: "assistant",
         content: "",
         timestamp: new Date(),
+        modelName: activeModel,
       };
 
       // Add user message and assistant placeholder message to state

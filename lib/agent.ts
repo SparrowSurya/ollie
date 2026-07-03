@@ -20,14 +20,36 @@ export async function getDefaultModel(): Promise<string> {
   return data.models[0].name;
 }
 
+// Helper function to check if a model supports thinking capability
+async function supportsThinking(modelName: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${env.ollamaHost}/api/show`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ model: modelName }),
+    });
+
+    if (!res.ok) return false;
+    const data = await res.json();
+
+    const capabilities = data.capabilities || [];
+    return capabilities.includes("thinking");
+  } catch {
+    return false;
+  }
+}
+
 // Node function: calls the model dynamically with the configured model name
 const callModel = async (state: typeof MessagesAnnotation.State, config?: RunnableConfig) => {
   const modelName = config?.configurable?.model_name || (await getDefaultModel());
+  const hasThinking = await supportsThinking(modelName);
 
   const dynamicModel = new ChatOllama({
     model: modelName,
     baseUrl: env.ollamaHost,
-    think: true, // Native thinking support
+    ...(hasThinking ? { think: true } : {}),
   });
 
   const response = await dynamicModel.invoke(state.messages);
