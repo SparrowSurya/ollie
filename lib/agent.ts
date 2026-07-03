@@ -8,7 +8,7 @@ import readEnv from "./config";
 const env = readEnv();
 
 // Helper function to fetch the first available pulled model name dynamically
-async function getDefaultModel(): Promise<string> {
+export async function getDefaultModel(): Promise<string> {
   const res = await fetch(`${env.ollamaHost}/api/tags`);
   if (!res.ok) {
     throw new Error(`Failed to query Ollama service: ${res.statusText}`);

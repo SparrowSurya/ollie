@@ -14,6 +14,8 @@ export interface UseChatReturn {
   bootstrapChat: (selectedModel: string, useAsDefault: boolean) => Promise<void>;
   sendMessage: (text: string) => Promise<void>;
   setActiveModel: (model: string) => void;
+  errorToast: string | null;
+  setErrorToast: (msg: string | null) => void;
 }
 
 export function useChat(): UseChatReturn {
@@ -24,6 +26,7 @@ export function useChat(): UseChatReturn {
   const [activeModel, setActiveModelState] = useState<string>("");
   const [defaultModel, setDefaultModel] = useState<string>("");
   const [runnableModels, setRunnableModels] = useState<string[]>([]);
+  const [errorToast, setErrorToast] = useState<string | null>(null);
   const threadIdRef = useRef<string>("");
 
   // Setter helper that dispatches custom events to notify other layout parts
@@ -114,12 +117,15 @@ export function useChat(): UseChatReturn {
         });
 
         if (!response.ok) {
-          throw new Error("Bootstrap request failed");
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(errData.error || "Bootstrap request failed");
         }
 
         setIsModelLoaded(true);
-      } catch (error) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } catch (error: any) {
         console.error("Error bootstrapping model:", error);
+        setErrorToast(error.message || "Failed to load model weights.");
       } finally {
         setIsBootstrapping(false);
       }
@@ -132,6 +138,7 @@ export function useChat(): UseChatReturn {
       if (isGenerating || isBootstrapping || !isModelLoaded) return;
 
       setIsGenerating(true);
+      setErrorToast(null); // Clear previous errors
 
       const userMessage: ChatUiMessage = {
         id: crypto.randomUUID(),
@@ -165,7 +172,8 @@ export function useChat(): UseChatReturn {
         });
 
         if (!response.ok) {
-          throw new Error("Failed to connect to chat API");
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(errData.error || "Failed to connect to chat API");
         }
 
         if (!response.body) {
@@ -192,14 +200,17 @@ export function useChat(): UseChatReturn {
             })
           );
         }
-      } catch (error) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } catch (error: any) {
         console.error("Streaming error:", error);
+        const errMsg = error.message || "Failed to stream response from the server.";
+        setErrorToast(errMsg);
         setMessages((prev) =>
           prev.map((msg) => {
             if (msg.id === assistantMessageId) {
               return {
                 ...msg,
-                content: "Error: Failed to stream response from the server. Make sure the backend is running.",
+                content: `Error: ${errMsg}`,
               };
             }
             return msg;
@@ -223,5 +234,7 @@ export function useChat(): UseChatReturn {
     bootstrapChat,
     sendMessage,
     setActiveModel,
+    errorToast,
+    setErrorToast,
   };
 }

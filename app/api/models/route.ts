@@ -12,6 +12,31 @@ const REGISTRY_MODELS = [
   "gemma4:e2b",
 ];
 
+// Helper to determine if a local model supports chat completions
+async function supportsChat(modelName: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${env.ollamaHost}/api/show`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ model: modelName }),
+    });
+
+    if (!res.ok) return false;
+    const data = await res.json();
+
+    // Verify chat capability using Ollama's capabilities array
+    const capabilities = data.capabilities || [];
+    if (!capabilities.includes("completion")) {
+      return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
@@ -26,7 +51,16 @@ export async function GET(req: Request) {
     }
 
     const data = await res.json();
-    const pulledModels = data.models?.map((m: {name: string}) => m.name) || [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rawPulledModels = data.models?.map((m: any) => m.name) || [];
+
+    // Verify chat support in parallel for all locally pulled models
+    const checkPromises = rawPulledModels.map(async (name: string) => {
+      const ok = await supportsChat(name);
+      return ok ? name : null;
+    });
+    const checkedResults = await Promise.all(checkPromises);
+    const pulledModels = checkedResults.filter((name): name is string => name !== null);
 
     if (downloadedOnly) {
       return NextResponse.json({ models: pulledModels });

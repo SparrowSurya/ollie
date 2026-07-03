@@ -14,6 +14,8 @@ export default function ChatPage() {
     runnableModels,
     bootstrapChat,
     sendMessage,
+    errorToast,
+    setErrorToast,
   } = useChat();
 
   // Register the global clipboard copy handler on component mount
@@ -56,6 +58,8 @@ export default function ChatPage() {
           defaultModel={defaultModel}
           runnableModels={runnableModels}
           bootstrapChat={bootstrapChat}
+          errorToast={errorToast}
+          setErrorToast={setErrorToast}
         />
       </div>
     </main>

@@ -15,6 +15,8 @@ export interface ChatViewProps {
   defaultModel?: string;
   runnableModels?: string[];
   bootstrapChat?: (model: string, useAsDefault: boolean) => Promise<void>;
+  errorToast?: string | null;
+  setErrorToast?: (msg: string | null) => void;
 }
 
 export default function ChatView({
@@ -26,6 +28,8 @@ export default function ChatView({
   defaultModel = "",
   runnableModels = [],
   bootstrapChat,
+  errorToast = null,
+  setErrorToast,
 }: Readonly<ChatViewProps>) {
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const isLockedRef = useRef<boolean>(true);
@@ -34,8 +38,18 @@ export default function ChatView({
   const [useAsDefault, setUseAsDefault] = useState<boolean>(true);
   const [toast, setToast] = useState<string | null>(null);
 
-  // Compute active selection during render to prevent synchronous effects
+  // Sync selected model state when defaultModel or runnableModels load
   const activeSelected = selectedModel || defaultModel || (runnableModels.length > 0 ? runnableModels[0] : "");
+
+  // Auto-dismiss the visual error toasts after a brief period
+  useEffect(() => {
+    if (errorToast) {
+      const timer = setTimeout(() => {
+        setErrorToast?.(null);
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [errorToast, setErrorToast]);
 
   // Track user's manual scroll actions to toggle the auto-scroll lock
   const handleScroll = () => {
@@ -159,11 +173,11 @@ export default function ChatView({
           )}
         </div>
 
-        {/* Floating warning toast if user attempts actions with no models */}
-        {toast && (
+        {/* Floating Warning Toast Overlay */}
+        {(toast || errorToast) && (
           <div className="toast toast-bottom toast-center z-50">
-            <div className="alert alert-warning border border-user-accent/30 shadow-lg text-xs rounded-xl py-2 px-4">
-              <span>{toast}</span>
+            <div className="alert alert-warning border border-user-accent/30 shadow-lg text-xs rounded-xl py-2 px-4 select-text">
+              <span>{toast || errorToast}</span>
             </div>
           </div>
         )}
@@ -174,7 +188,7 @@ export default function ChatView({
   const isEmpty = messages.length === 0;
 
   return (
-    <div className="flex flex-col h-full w-full justify-between bg-transparent">
+    <div className="flex flex-col h-full w-full justify-between bg-transparent relative">
       {isEmpty ? (
         // Empty State: Greeting centered in viewport with input below it
         <div className="flex-1 flex flex-col justify-center items-stretch w-full max-w-xl mx-auto px-6 select-none">
@@ -207,6 +221,15 @@ export default function ChatView({
               onSend={onSend}
               disabled={isGenerating || isBootstrapping}
             />
+          </div>
+        </div>
+      )}
+
+      {/* Floating API Warning Toast Notification Overlay */}
+      {errorToast && (
+        <div className="toast toast-bottom toast-center z-50">
+          <div className="alert alert-warning border border-user-accent/30 shadow-lg text-xs rounded-xl py-2 px-4 select-text font-sans">
+            <span>{errorToast}</span>
           </div>
         </div>
       )}
