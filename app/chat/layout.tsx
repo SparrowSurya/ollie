@@ -15,19 +15,15 @@ function ChatLayoutInner({ children }: { children: React.ReactNode }) {
   } = useChatContext();
 
   // Sidebar expanded state — owned here so it survives route changes between /chat and /chat/[sessionId]
-  // Initialise from localStorage to survive page reloads too
-  const [isExpanded, setIsExpanded] = useState<boolean>(() => {
-    if (typeof window === "undefined") return true;
-    const stored = localStorage.getItem("sidebar_expanded");
-    return stored === null ? true : stored === "true";
-  });
+  // Always default to true to match server render, then sync from localStorage after mount
+  const [isExpanded, setIsExpanded] = useState<boolean>(true);
 
   const handleSetExpanded = (val: boolean) => {
     setIsExpanded(val);
     localStorage.setItem("sidebar_expanded", String(val));
   };
 
-  // Hydration guard: sync from localStorage after mount on client
+  // Sync from localStorage after mount (client-only, avoids SSR hydration mismatch)
   useEffect(() => {
     const sync = async () => {
       const stored = localStorage.getItem("sidebar_expanded");
