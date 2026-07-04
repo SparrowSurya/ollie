@@ -11,6 +11,8 @@ interface SidebarProps {
   onDeleteSession: (id: string) => void;
   onRenameSession: (id: string, newTitle: string) => void;
   onNewChat: () => void;
+  isExpanded: boolean;
+  onSetExpanded: (val: boolean) => void;
 }
 
 export default function Sidebar({
@@ -20,10 +22,9 @@ export default function Sidebar({
   onDeleteSession,
   onRenameSession,
   onNewChat,
+  isExpanded,
+  onSetExpanded,
 }: Readonly<SidebarProps>) {
-  // Desktop collapse state (defaults to expanded)
-  const [isExpanded, setIsExpanded] = useState<boolean>(true);
-  
   // Mobile drawer overlay backdrop open state (defaults to closed)
   const [isMobileOpen, setIsMobileOpen] = useState<boolean>(false);
 
@@ -91,7 +92,7 @@ export default function Sidebar({
         <button
           onClick={() => {
             if (window.innerWidth >= 1024) {
-              setIsExpanded(true);
+              onSetExpanded(true);
             } else {
               setIsMobileOpen(true);
             }
@@ -130,12 +131,12 @@ export default function Sidebar({
               : "w-0 -translate-x-full lg:translate-x-0 lg:w-0 overflow-hidden"
         }`}
       >
-        {/* Header section (replaces header with a clean history tag and collapse button) */}
+        {/* Header section (collapse button) */}
         <div className="p-4 border-b border-base-content/5 flex items-center justify-end shrink-0 h-14">
           <button
             onClick={() => {
               if (window.innerWidth >= 1024) {
-                setIsExpanded(false);
+                onSetExpanded(false);
               } else {
                 setIsMobileOpen(false);
               }
