@@ -32,6 +32,9 @@ export default function Sidebar({
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState<string>("");
 
+  // Pending delete confirmation state
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+
   const handleSelect = (id: string) => {
     onSelectSession(id);
     setIsMobileOpen(false); // Close mobile drawer overlay on selection
@@ -41,7 +44,7 @@ export default function Sidebar({
     e.stopPropagation();
     setEditingSessionId(session.id);
     setEditingTitle(session.title || "New Chat");
-    
+
     // Close active dropdown
     if (document.activeElement instanceof HTMLElement) {
       document.activeElement.blur();
@@ -66,12 +69,23 @@ export default function Sidebar({
 
   const handleDeleteClick = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    onDeleteSession(id);
-    
-    // Close active dropdown
+    // Close active dropdown first
     if (document.activeElement instanceof HTMLElement) {
       document.activeElement.blur();
     }
+    // Show confirmation modal instead of deleting immediately
+    setPendingDeleteId(id);
+  };
+
+  const confirmDelete = () => {
+    if (pendingDeleteId) {
+      onDeleteSession(pendingDeleteId);
+      setPendingDeleteId(null);
+    }
+  };
+
+  const cancelDelete = () => {
+    setPendingDeleteId(null);
   };
 
   // Sync mobile drawer state with window sizing
@@ -124,10 +138,10 @@ export default function Sidebar({
       {/* Sidebar Container */}
       <aside
         className={`fixed lg:static top-0 left-0 bottom-0 z-50 bg-base-200 border-r border-base-content/10 flex flex-col h-full transition-all duration-300 select-none ${
-          isMobileOpen 
-            ? "w-64 translate-x-0" 
-            : isExpanded 
-              ? "w-64 translate-x-0 lg:translate-x-0" 
+          isMobileOpen
+            ? "w-64 translate-x-0"
+            : isExpanded
+              ? "w-64 translate-x-0 lg:translate-x-0"
               : "w-0 -translate-x-full lg:translate-x-0 lg:w-0 overflow-hidden"
         }`}
       >
@@ -205,7 +219,7 @@ export default function Sidebar({
 
                     {/* 3-dots Dropdown Option Menu */}
                     {!isEditing && (
-                      <div 
+                      <div
                         className="dropdown dropdown-bottom dropdown-end shrink-0 opacity-0 group-hover:opacity-100 focus-within:opacity-100"
                         onClick={(e) => e.stopPropagation()}
                       >
@@ -249,6 +263,38 @@ export default function Sidebar({
           )}
         </div>
       </aside>
+
+      {/* Delete Confirmation Modal */}
+      {pendingDeleteId && (
+        <div className="fixed inset-0 z-100 flex items-center justify-center">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={cancelDelete}
+          />
+          {/* Dialog */}
+          <div className="relative bg-base-200 border border-base-content/10 rounded-2xl shadow-2xl p-6 w-80 flex flex-col gap-4 animate-fade-in">
+            <h3 className="text-base font-bold text-base-content">Delete Session?</h3>
+            <p className="text-sm text-base-content/70 leading-relaxed">
+              This conversation will be permanently deleted and cannot be recovered.
+            </p>
+            <div className="flex gap-2 justify-end mt-1">
+              <button
+                onClick={cancelDelete}
+                className="btn btn-sm btn-ghost text-base-content/70"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="btn btn-sm btn-error text-error-content"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
