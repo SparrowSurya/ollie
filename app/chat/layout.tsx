@@ -12,6 +12,7 @@ function ChatLayoutInner({ children }: { children: React.ReactNode }) {
     deleteSession,
     renameSession,
     startNewChat,
+    startNewImageChat,
   } = useChatContext();
 
   // Sidebar expanded state — owned here so it survives route changes between /chat and /chat/[sessionId]
@@ -44,6 +45,7 @@ function ChatLayoutInner({ children }: { children: React.ReactNode }) {
         onDeleteSession={deleteSession}
         onRenameSession={renameSession}
         onNewChat={startNewChat}
+        onNewImageChat={startNewImageChat}
         isExpanded={isExpanded}
         onSetExpanded={handleSetExpanded}
       />

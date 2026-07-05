@@ -7,10 +7,13 @@ import { useOllama } from "@/contexts/OllamaContext";
 export default function ModelManagerTab() {
   const {
     runnableModels,
+    imageModels,
     defaultModel,
+    defaultImageModel,
     activeModel,
     pullingStatus,
     setDefaultModel,
+    setDefaultImageModel,
     setActiveModel,
     pullModel,
     cancelPull,
@@ -121,6 +124,34 @@ export default function ModelManagerTab() {
             <option value="">No models installed</option>
           ) : (
             runnableModels.map((m) => (
+              <option key={m} value={m}>
+                {m}
+              </option>
+            ))
+          )}
+        </select>
+      </div>
+
+      {/* Default Image Model Select Row */}
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4 py-3 border-b border-base-content/5">
+        <div className="flex flex-col text-left gap-0.5 max-w-xs">
+          <span className="text-base font-bold uppercase tracking-wider text-base-content">
+            Default Image Model:
+          </span>
+          <span className="text-sm text-base-content/80 leading-relaxed font-sans select-none">
+            The model used automatically when generating local images.
+          </span>
+        </div>
+        <select
+          value={defaultImageModel}
+          onChange={(e) => setDefaultImageModel(e.target.value)}
+          disabled={imageModels.length === 0}
+          className="select select-bordered select-sm w-full sm:w-48 bg-base-content/5 backdrop-blur-sm font-sans cursor-pointer focus:outline-hidden text-base h-9 px-3"
+        >
+          {imageModels.length === 0 ? (
+            <option value="">No image models installed</option>
+          ) : (
+            imageModels.map((m) => (
               <option key={m} value={m}>
                 {m}
               </option>

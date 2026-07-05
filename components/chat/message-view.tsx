@@ -46,6 +46,7 @@ export default function MessageView({
             pendingStatus={isGeneratingPlaceholder ? "generating" : undefined}
             modelName={msg.modelName}
             images={msg.images}
+            generatedImages={msg.generatedImages}
           />
         );
       })}

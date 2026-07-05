@@ -19,6 +19,7 @@ export interface DbMessage {
   content: string;
   modelName?: string;
   images?: string;
+  generatedImages?: string;
   timestamp: Date;
 }
 
@@ -84,6 +85,7 @@ export async function getMessages(sessionId: string): Promise<DbMessage[]> {
     content: m.content,
     modelName: m.modelName || undefined,
     images: m.images || undefined,
+    generatedImages: m.generatedImages || undefined,
     timestamp: m.timestamp,
   }));
 }
@@ -94,7 +96,8 @@ export async function saveMessage(
   role: string,
   content: string,
   modelName?: string,
-  images?: string
+  images?: string,
+  generatedImages?: string
 ): Promise<void> {
   const prisma = getPrisma();
   
@@ -102,7 +105,8 @@ export async function saveMessage(
     where: { id },
     update: { 
       content,
-      images: images || null
+      images: images || null,
+      generatedImages: generatedImages || null,
     },
     create: {
       id,
@@ -111,6 +115,7 @@ export async function saveMessage(
       content,
       modelName: modelName || null,
       images: images || null,
+      generatedImages: generatedImages || null,
     },
   });
 

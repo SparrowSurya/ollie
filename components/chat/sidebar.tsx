@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Plus, Menu, X, MoreVertical } from "lucide-react";
+import { Plus, Menu, X, MoreVertical, Sparkles } from "lucide-react";
 import { DbSession } from "@/contexts/ChatContext";
 
 interface SidebarProps {
@@ -11,6 +11,7 @@ interface SidebarProps {
   onDeleteSession: (id: string) => void;
   onRenameSession: (id: string, newTitle: string) => void;
   onNewChat: () => void;
+  onNewImageChat?: () => void;
   isExpanded: boolean;
   onSetExpanded: (val: boolean) => void;
 }
@@ -22,6 +23,7 @@ export default function Sidebar({
   onDeleteSession,
   onRenameSession,
   onNewChat,
+  onNewImageChat,
   isExpanded,
   onSetExpanded,
 }: Readonly<SidebarProps>) {
@@ -173,6 +175,20 @@ export default function Sidebar({
           >
             <Plus className="w-3.5 h-3.5" />
             <span>New Chat</span>
+          </button>
+        </div>
+
+        {/* Generate Image Action (Outlined Button) */}
+        <div className="p-3 pt-0 shrink-0">
+          <button
+            onClick={() => {
+              onNewImageChat?.();
+              setIsMobileOpen(false);
+            }}
+            className="btn btn-sm btn-outline border-user-accent/50 text-user-accent hover:bg-user-accent hover:border-user-accent hover:text-base-100 w-full flex items-center justify-center gap-1.5 rounded-xl uppercase tracking-wider font-bold text-[11px]"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Generate Image</span>
           </button>
         </div>
 

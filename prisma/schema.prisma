@@ -18,14 +18,15 @@ model Session {
 }
 
 model Message {
-  id        String   @id
-  sessionId String   @map("session_id")
-  role      String
-  content   String
-  images    String?  // Comma-separated
-  modelName String?  @map("model_name")
-  timestamp DateTime @default(now())
-  session   Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  id              String   @id
+  sessionId       String   @map("session_id")
+  role            String
+  content         String
+  images          String?  // Comma-separated
+  generatedImages String?  @map("generated_images") // Comma-separated generated images
+  modelName       String?  @map("model_name")
+  timestamp       DateTime @default(now())
+  session         Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   @@map("messages")
 }

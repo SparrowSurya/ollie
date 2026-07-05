@@ -21,6 +21,7 @@ export interface DbMessageResponse {
   content: string;
   modelName?: string;
   images?: string;
+  generatedImages?: string;
   timestamp: string | Date;
 }
 
@@ -42,6 +43,7 @@ export interface ChatContextType {
   sessions: DbSession[];
   activeSessionId: string;
   startNewChat: () => void;
+  startNewImageChat: () => void;
   switchSession: (sessionId: string) => Promise<void>;
   deleteSession: (sessionId: string) => Promise<void>;
   renameSession: (sessionId: string, newTitle: string) => Promise<void>;
@@ -56,11 +58,13 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
   const {
     runnableModels,
+    imageModels,
     defaultModel,
+    defaultImageModel,
     activeModel,
-    isInitializing,
     setActiveModel,
     setDefaultModel,
+    isInitializing: isOllamaInitializing,
   } = useOllama();
 
   const { customInstructions } = useSettings();
@@ -129,6 +133,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     loadList();
   }, [fetchSessions]);
 
+  const isStartingImageChatRef = useRef<boolean>(false);
+
   // Sync activeSessionId with URL param
   useEffect(() => {
     const syncSession = async () => {
@@ -140,7 +146,13 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         setActiveSessionId(newUuid);
         loadedSessionIdRef.current = newUuid;
         setMessages([]);
-        setIsModelLoaded(false);
+
+        if (isStartingImageChatRef.current) {
+          setIsModelLoaded(true);
+          isStartingImageChatRef.current = false;
+        } else {
+          setIsModelLoaded(false);
+        }
       }
     };
     syncSession();
@@ -166,6 +178,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
                 timestamp: new Date(m.timestamp),
                 modelName: m.modelName || undefined,
                 images: m.images ? m.images.split(",") : undefined,
+                generatedImages: m.generatedImages ? m.generatedImages.split(",") : undefined,
               }))
             );
             if (data.model) {
@@ -191,6 +204,25 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const startNewChat = useCallback(() => {
     router.push("/chat");
   }, [router]);
+
+  const startNewImageChat = useCallback(() => {
+    setMessages([]);
+    const newUuid = crypto.randomUUID();
+    setActiveSessionId(newUuid);
+    loadedSessionIdRef.current = newUuid;
+
+    const targetImgModel = defaultImageModel || (imageModels.length > 0 ? imageModels[0] : "");
+    if (targetImgModel) {
+      setActiveModel(targetImgModel);
+      setIsModelLoaded(true);
+      isStartingImageChatRef.current = true;
+    } else {
+      setIsModelLoaded(false);
+      setErrorToast("No image generation models installed. Please pull an image model (like flux) in Settings.");
+    }
+
+    router.push("/chat");
+  }, [defaultImageModel, imageModels, setActiveModel, router]);
 
   const switchSession = useCallback(async (sessionId: string) => {
     router.push(`/chat/${sessionId}`);
@@ -358,29 +390,46 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
           throw new Error(errData.error || "Failed to connect to chat API");
         }
 
-        if (!response.body) {
-          throw new Error("Response body is unreadable");
-        }
-
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-
-        while (true) {
-          const { value, done } = await reader.read();
-          if (done) break;
-
-          const chunk = decoder.decode(value, { stream: true });
+        const contentType = response.headers.get("Content-Type") || "";
+        if (contentType.includes("application/json")) {
+          const data = await response.json();
           setMessages((prev) =>
             prev.map((msg) => {
               if (msg.id === assistantMessageId) {
                 return {
                   ...msg,
-                  content: msg.content + chunk,
+                  content: data.content || "",
+                  generatedImages: data.generatedImages || undefined,
                 };
               }
               return msg;
             })
           );
+        } else {
+          if (!response.body) {
+            throw new Error("Response body is unreadable");
+          }
+
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+
+          while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+
+            const chunk = decoder.decode(value, { stream: true });
+            setMessages((prev) =>
+              prev.map((msg) => {
+                if (msg.id === assistantMessageId) {
+                  return {
+                    ...msg,
+                    content: msg.content + chunk,
+                  };
+                }
+                return msg;
+              })
+            );
+          }
         }
 
         // Stream completed successfully, reload sessions to capture potential auto-title or updated order
@@ -446,10 +495,11 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         setActiveModel: changeActiveModel,
         errorToast,
         setErrorToast,
-        isInitializing,
+        isInitializing: isOllamaInitializing,
         sessions,
         activeSessionId,
         startNewChat,
+        startNewImageChat,
         switchSession,
         deleteSession,
         renameSession,

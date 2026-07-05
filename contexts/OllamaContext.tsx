@@ -10,11 +10,14 @@ export interface PullState {
 
 interface OllamaContextType {
   runnableModels: string[];
+  imageModels: string[];
   defaultModel: string;
+  defaultImageModel: string;
   activeModel: string;
   pullingStatus: Record<string, PullState>;
   isInitializing: boolean;
   setDefaultModel: (modelName: string) => void;
+  setDefaultImageModel: (modelName: string) => void;
   setActiveModel: (modelName: string) => void;
   fetchRunnableModels: () => Promise<void>;
   pullModel: (modelName: string) => Promise<void>;
@@ -26,7 +29,9 @@ const OllamaContext = createContext<OllamaContextType | undefined>(undefined);
 
 export function OllamaProvider({ children }: { children: React.ReactNode }) {
   const [runnableModels, setRunnableModels] = useState<string[]>([]);
+  const [imageModels, setImageModels] = useState<string[]>([]);
   const [defaultModel, setDefaultModelState] = useState<string>("");
+  const [defaultImageModel, setDefaultImageModelState] = useState<string>("");
   const [activeModel, setActiveModelState] = useState<string>("");
   const [pullingStatus, setPullingStatus] = useState<Record<string, PullState>>({});
   const [isInitializing, setIsInitializing] = useState<boolean>(true);
@@ -35,11 +40,13 @@ export function OllamaProvider({ children }: { children: React.ReactNode }) {
 
   const fetchRunnableModels = async () => {
     try {
-      const response = await fetch("/api/models?downloaded=true");
+      const response = await fetch("/api/models");
       if (response.ok) {
         const data = await response.json();
         const list = data.models || [];
+        const imgList = data.imageModels || [];
         setRunnableModels(list);
+        setImageModels(imgList);
 
         // Resolve default model
         const savedDefault = localStorage.getItem("olly-default-model") || "";
@@ -50,12 +57,23 @@ export function OllamaProvider({ children }: { children: React.ReactNode }) {
           localStorage.setItem("olly-default-model", list[0]);
         }
 
+        // Resolve default image model
+        const savedDefaultImg = localStorage.getItem("olly-default-image-model") || "";
+        if (savedDefaultImg && imgList.includes(savedDefaultImg)) {
+          setDefaultImageModelState(savedDefaultImg);
+        } else if (imgList.length > 0) {
+          setDefaultImageModelState(imgList[0]);
+          localStorage.setItem("olly-default-image-model", imgList[0]);
+        }
+
         // Resolve active model
         const savedActive = localStorage.getItem("olly-active-model") || "";
-        if (savedActive && list.includes(savedActive)) {
+        if (savedActive && (list.includes(savedActive) || imgList.includes(savedActive))) {
           setActiveModelState(savedActive);
         } else if (list.length > 0) {
           setActiveModelState(list[0]);
+        } else if (imgList.length > 0) {
+          setActiveModelState(imgList[0]);
         }
       }
     } catch (error) {
@@ -75,6 +93,11 @@ export function OllamaProvider({ children }: { children: React.ReactNode }) {
   const setDefaultModel = (modelName: string) => {
     setDefaultModelState(modelName);
     localStorage.setItem("olly-default-model", modelName);
+  };
+
+  const setDefaultImageModel = (modelName: string) => {
+    setDefaultImageModelState(modelName);
+    localStorage.setItem("olly-default-image-model", modelName);
   };
 
   const setActiveModel = (modelName: string) => {
@@ -236,11 +259,14 @@ export function OllamaProvider({ children }: { children: React.ReactNode }) {
     <OllamaContext.Provider
       value={{
         runnableModels,
+        imageModels,
         defaultModel,
+        defaultImageModel,
         activeModel,
         pullingStatus,
         isInitializing,
         setDefaultModel,
+        setDefaultImageModel,
         setActiveModel,
         fetchRunnableModels,
         pullModel,

@@ -9,6 +9,7 @@ export interface ChatMessageProps {
   pendingStatus?: "loading" | "generating";
   modelName?: string;
   images?: string[];
+  generatedImages?: string[];
 }
 
 export default function ChatMessage({
@@ -17,27 +18,29 @@ export default function ChatMessage({
   pendingStatus,
   modelName,
   images,
+  generatedImages,
 }: Readonly<ChatMessageProps>) {
   const isUser = role === "user";
+  const displayImages = images || generatedImages;
   const [activeImageIndex, setActiveImageIndex] = useState<number | null>(null);
 
   // Keyboard navigation listener for full screen modal
   useEffect(() => {
-    if (activeImageIndex === null || !images || images.length === 0) return;
+    if (activeImageIndex === null || !displayImages || displayImages.length === 0) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         setActiveImageIndex(null);
-      } else if (e.key === "ArrowLeft" && images.length > 1) {
-        setActiveImageIndex((prev) => (prev !== null ? (prev - 1 + images.length) % images.length : null));
-      } else if (e.key === "ArrowRight" && images.length > 1) {
-        setActiveImageIndex((prev) => (prev !== null ? (prev + 1) % images.length : null));
+      } else if (e.key === "ArrowLeft" && displayImages.length > 1) {
+        setActiveImageIndex((prev) => (prev !== null ? (prev - 1 + displayImages.length) % displayImages.length : null));
+      } else if (e.key === "ArrowRight" && displayImages.length > 1) {
+        setActiveImageIndex((prev) => (prev !== null ? (prev + 1) % displayImages.length : null));
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [activeImageIndex, images]);
+  }, [activeImageIndex, displayImages]);
 
   // Toggle body class for lightbox state transitions
   useEffect(() => {
@@ -100,9 +103,9 @@ export default function ChatMessage({
   if (isUser) {
     return (
       <div className="flex flex-col items-end w-full my-2">
-        {images && images.length > 0 && (
+        {displayImages && displayImages.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-2 max-w-[70%] justify-end select-none">
-            {images.map((src, index) => (
+            {displayImages.map((src, index) => (
               <div
                 key={src}
                 className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden border border-base-content/10 group cursor-pointer hover:opacity-90 shadow-md transition-all"
@@ -123,7 +126,7 @@ export default function ChatMessage({
         </div>
 
         {/* Lightbox full screen image modal */}
-        {activeImageIndex !== null && images && images[activeImageIndex] && (
+        {activeImageIndex !== null && displayImages && displayImages[activeImageIndex] && (
           <div className="fixed inset-0 bg-base-300/40 backdrop-blur-xl z-[150] flex items-center justify-center select-none animate-fade-in p-4 border border-base-content/5 shadow-2xl">
             <div
               className="absolute inset-0 cursor-zoom-out"
@@ -138,11 +141,11 @@ export default function ChatMessage({
               <X size={20} className="text-base-content" />
             </button>
 
-            {images.length > 1 && (
+            {displayImages.length > 1 && (
               <button
                 onClick={() =>
                   setActiveImageIndex((prev) =>
-                    prev !== null ? (prev - 1 + images.length) % images.length : null
+                    prev !== null ? (prev - 1 + displayImages.length) % displayImages.length : null
                   )
                 }
                 className="absolute left-6 btn btn-circle btn-sm bg-base-content/10 hover:bg-base-content/20 border border-base-content/10 backdrop-blur-md text-base-content/85 hover:text-base-content shadow-lg transition-all z-[160] w-10 h-10"
@@ -155,21 +158,21 @@ export default function ChatMessage({
             <div className="relative max-h-[85vh] max-w-[85vw] flex items-center justify-center z-[160]">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={images[activeImageIndex]}
+                src={displayImages[activeImageIndex]}
                 alt="Expanded view"
                 className="max-h-[85vh] max-w-[85vw] object-contain rounded-xl shadow-2xl border border-base-content/10 transition-all"
               />
-              {images.length > 1 && (
+              {displayImages.length > 1 && (
                 <span className="absolute -bottom-10 text-[11px] font-mono font-bold text-base-content/75 bg-base-content/10 border border-base-content/10 backdrop-blur-md px-3 py-1 rounded-full">
-                  {activeImageIndex + 1} / {images.length}
+                  {activeImageIndex + 1} / {displayImages.length}
                 </span>
               )}
             </div>
 
-            {images.length > 1 && (
+            {displayImages.length > 1 && (
               <button
                 onClick={() =>
-                  setActiveImageIndex((prev) => (prev !== null ? (prev + 1) % images.length : null))
+                  setActiveImageIndex((prev) => (prev !== null ? (prev + 1) % displayImages.length : null))
                 }
                 className="absolute right-6 btn btn-circle btn-sm bg-base-content/10 hover:bg-base-content/20 border border-base-content/10 backdrop-blur-md text-base-content/85 hover:text-base-content shadow-lg transition-all z-[160] w-10 h-10"
                 title="Next image"
@@ -219,8 +222,27 @@ export default function ChatMessage({
         />
       )}
 
+      {displayImages && displayImages.length > 0 && (
+        <div className="flex flex-wrap gap-2 mt-3 select-none">
+          {displayImages.map((src, index) => (
+            <div
+              key={src}
+              className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden border border-base-content/10 group cursor-pointer hover:opacity-90 shadow-md transition-all"
+              onClick={() => setActiveImageIndex(index)}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={src}
+                alt="Generated output"
+                className="w-full h-full object-cover"
+              />
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Lightbox full screen image modal */}
-      {activeImageIndex !== null && images && images[activeImageIndex] && (
+      {activeImageIndex !== null && displayImages && displayImages[activeImageIndex] && (
         <div className="fixed inset-0 bg-base-300/40 backdrop-blur-xl z-[150] flex items-center justify-center select-none animate-fade-in p-4 border border-base-content/5 shadow-2xl">
           <div
             className="absolute inset-0 cursor-zoom-out"
@@ -235,11 +257,11 @@ export default function ChatMessage({
             <X size={20} className="text-base-content" />
           </button>
 
-          {images.length > 1 && (
+          {displayImages.length > 1 && (
             <button
               onClick={() =>
                 setActiveImageIndex((prev) =>
-                  prev !== null ? (prev - 1 + images.length) % images.length : null
+                  prev !== null ? (prev - 1 + displayImages.length) % displayImages.length : null
                 )
               }
               className="absolute left-6 btn btn-circle btn-sm bg-base-content/10 hover:bg-base-content/20 border border-base-content/10 backdrop-blur-md text-base-content/85 hover:text-base-content shadow-lg transition-all z-[160] w-10 h-10"
@@ -252,21 +274,21 @@ export default function ChatMessage({
           <div className="relative max-h-[85vh] max-w-[85vw] flex items-center justify-center z-[160]">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={images[activeImageIndex]}
+              src={displayImages[activeImageIndex]}
               alt="Expanded view"
               className="max-h-[85vh] max-w-[85vw] object-contain rounded-xl shadow-2xl border border-base-content/10 transition-all"
             />
-            {images.length > 1 && (
+            {displayImages.length > 1 && (
               <span className="absolute -bottom-10 text-[11px] font-mono font-bold text-base-content/75 bg-base-content/10 border border-base-content/10 backdrop-blur-md px-3 py-1 rounded-full">
-                {activeImageIndex + 1} / {images.length}
+                {activeImageIndex + 1} / {displayImages.length}
               </span>
             )}
           </div>
 
-          {images.length > 1 && (
+          {displayImages.length > 1 && (
             <button
               onClick={() =>
-                setActiveImageIndex((prev) => (prev !== null ? (prev + 1) % images.length : null))
+                setActiveImageIndex((prev) => (prev !== null ? (prev + 1) % displayImages.length : null))
               }
               className="absolute right-6 btn btn-circle btn-sm bg-base-content/10 hover:bg-base-content/20 border border-base-content/10 backdrop-blur-md text-base-content/85 hover:text-base-content shadow-lg transition-all z-[160] w-10 h-10"
               title="Next image"

@@ -29,9 +29,17 @@ export async function GET(
       ? path.resolve(env.storagePath) 
       : path.join(process.cwd(), "storage");
       
-    const filePath = path.join(baseStorageDir, "upload", sanitizedFilename);
+    let filePath = path.join(baseStorageDir, "upload", sanitizedFilename);
 
     try {
+      // Check if file exists in 'upload' folder, if not check 'generated' folder
+      try {
+        await fs.access(filePath);
+      } catch {
+        filePath = path.join(baseStorageDir, "generated", sanitizedFilename);
+        await fs.access(filePath);
+      }
+
       const fileBuffer = await fs.readFile(filePath);
       const ext = path.extname(sanitizedFilename).toLowerCase();
       const contentType = MIME_TYPES[ext] || "application/octet-stream";
