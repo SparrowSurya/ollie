@@ -20,39 +20,55 @@ export async function generateImage(
   prompt: string,
   activeThreadId: string,
   targetModel: string,
+  n: number | boolean = 1,
   skipDbSave = false
 ): Promise<GeneratedImageResponse> {
-  logger.info(`Starting image generation using model "${targetModel}" (Session: "${activeThreadId}")`);
+  let numImages = 1;
+  let shouldSkipDb = skipDbSave;
+  
+  if (typeof n === "boolean") {
+    shouldSkipDb = n;
+    numImages = 1;
+  } else {
+    numImages = n;
+  }
 
-  const ollamaRes = await fetch(`${env.ollamaHost}/v1/images/generations`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: targetModel,
-      prompt: prompt,
-      n: 1,
-    }),
+  logger.info(`Starting image generation using model "${targetModel}" (Session: "${activeThreadId}", Count: ${numImages})`);
+
+  // Parallel fetch request for each image since Ollama API doesn't support multiple image generation in one call
+  const fetchPromises = Array.from({ length: numImages }).map(async (_, i) => {
+    logger.info(`Sending image generation request ${i + 1}/${numImages} for session "${activeThreadId}"...`);
+    const ollamaRes = await fetch(`${env.ollamaHost}/v1/images/generations`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: targetModel,
+        prompt: prompt,
+        n: 1, // each request generates 1 image
+      }),
+    });
+
+    if (!ollamaRes.ok) {
+      const errText = await ollamaRes.text().catch(() => "");
+      const errorMsg = `Image ${i + 1}/${numImages} generation failed: ${errText || ollamaRes.statusText}`;
+      logger.error(errorMsg);
+      throw new Error(errorMsg);
+    }
+
+    const ollamaData = await ollamaRes.json();
+    const base64Data = ollamaData.data?.[0]?.b64_json;
+    if (!base64Data) {
+      const errorMsg = `Ollama returned empty image payload for image ${i + 1}/${numImages}`;
+      logger.error(errorMsg);
+      throw new Error(errorMsg);
+    }
+    return base64Data;
   });
 
-  if (!ollamaRes.ok) {
-    const errText = await ollamaRes.text().catch(() => "");
-    const errorMsg = `Ollama image generation failed: ${errText || ollamaRes.statusText}`;
-    logger.error(errorMsg);
-    throw new Error(errorMsg);
-  }
-
-  const ollamaData = await ollamaRes.json();
-  const base64Data = ollamaData.data?.[0]?.b64_json;
-  if (!base64Data) {
-    const errorMsg = "Ollama returned empty image payload";
-    logger.error(errorMsg);
-    throw new Error(errorMsg);
-  }
-
-  logger.info(`Successfully received image payload, converting and saving to local storage...`);
-  const buffer = Buffer.from(base64Data, "base64");
+  const base64DataList = await Promise.all(fetchPromises);
+  logger.info(`Successfully received all ${numImages} image payloads, converting and saving to local storage in parallel...`);
 
   const baseStorageDir = env.storagePath 
     ? path.resolve(env.storagePath) 
@@ -60,16 +76,30 @@ export async function generateImage(
   const generatedDir = path.join(baseStorageDir, "generated");
   await fs.mkdir(generatedDir, { recursive: true });
 
-  const timestamp = Date.now();
-  const randInt = Math.floor(Math.random() * 10001);
-  const filename = `${timestamp}_${randInt}.png`;
-  const filePath = path.join(generatedDir, filename);
+  const savePromises = base64DataList.map(async (base64Data, i) => {
+    const buffer = Buffer.from(base64Data, "base64");
+    const timestamp = Date.now();
+    const randInt = Math.floor(Math.random() * 10001);
+    const filename = `${timestamp}_${randInt}_${i}.png`;
+    const filePath = path.join(generatedDir, filename);
 
-  await fs.writeFile(filePath, buffer);
-  const imageUrlPath = `/api/uploads/${filename}`;
-  logger.info(`Generated image saved to disk as: "${filename}" (Path: "${filePath}")`);
+    await fs.writeFile(filePath, buffer);
+    const imageUrlPath = `/api/uploads/${filename}`;
+    logger.info(`Generated image ${i + 1}/${numImages} saved to disk as: "${filename}" (Path: "${filePath}")`);
+    return imageUrlPath;
+  });
 
-  if (!skipDbSave) {
+  const imageUrlPaths = await Promise.all(savePromises);
+
+  if (imageUrlPaths.length === 0) {
+    const errorMsg = "Failed to parse and save generated images";
+    logger.error(errorMsg);
+    throw new Error(errorMsg);
+  }
+
+  const imageUrlsString = imageUrlPaths.join(",");
+
+  if (!shouldSkipDb) {
     // Ensure the session row exists in the database to avoid foreign key violations (P2003)
     const session = await getSession(activeThreadId);
     if (!session) {
@@ -90,13 +120,13 @@ export async function generateImage(
       "",
       targetModel,
       undefined,
-      imageUrlPath
+      imageUrlsString
     );
   }
 
   return {
     content: "",
-    generatedImages: [imageUrlPath],
+    generatedImages: imageUrlPaths,
   };
 }
 

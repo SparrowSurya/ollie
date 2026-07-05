@@ -16,7 +16,7 @@ export const imageGenTool = tool(
         return errorMsg;
       }
 
-      const response = await generateImage(prompt, threadId, imageModel, true);
+      const response = await generateImage(prompt, threadId, imageModel, 1, true);
 
       logger.info(`Tool "generate_image" execution completed successfully (Session: "${threadId}")`);
       // Return only the raw markdown image tag

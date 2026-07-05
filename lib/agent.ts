@@ -347,8 +347,7 @@ export function streamAgentResponse(
             for (const msg of turnMessages) {
               const contentStr = typeof msg.content === "string" ? msg.content : "";
               if (msg._getType() === "tool" && contentStr.includes("/api/uploads/")) {
-                toolImageMarkdown = contentStr;
-                break;
+                toolImageMarkdown += (toolImageMarkdown ? " " : "") + contentStr;
               }
             }
 
