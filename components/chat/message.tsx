@@ -223,21 +223,40 @@ export default function ChatMessage({
       )}
 
       {displayImages && displayImages.length > 0 && (
-        <div className="flex flex-wrap gap-2 mt-3 select-none">
-          {displayImages.map((src, index) => (
+        <div className="mt-3 select-none w-full">
+          {displayImages.length === 1 ? (
             <div
-              key={src}
-              className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden border border-base-content/10 group cursor-pointer hover:opacity-90 shadow-md transition-all"
-              onClick={() => setActiveImageIndex(index)}
+              className="relative w-full max-w-xl aspect-video rounded-2xl overflow-hidden border border-base-content/10 group cursor-pointer hover:opacity-95 shadow-lg transition-all"
+              onClick={() => setActiveImageIndex(0)}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={src}
+                src={displayImages[0]}
                 alt="Generated output"
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover group-hover:scale-[1.01] transition-transform duration-300"
               />
             </div>
-          ))}
+          ) : (
+            <div className={`grid gap-3 w-full max-w-2xl ${displayImages.length === 2 ? "grid-cols-2" : "grid-cols-2 sm:grid-cols-3"}`}>
+              {displayImages.map((src, index) => (
+                <div
+                  key={src}
+                  className="relative aspect-square rounded-2xl overflow-hidden border border-base-content/10 group cursor-pointer hover:opacity-95 shadow-md transition-all"
+                  onClick={() => setActiveImageIndex(index)}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={src}
+                    alt="Generated output"
+                    className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
+                  />
+                  <div className="absolute bottom-2 right-2 px-2 py-0.5 bg-black/60 backdrop-blur-xs text-[10px] text-white rounded-md opacity-0 group-hover:opacity-100 transition-opacity">
+                    Image {index + 1}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

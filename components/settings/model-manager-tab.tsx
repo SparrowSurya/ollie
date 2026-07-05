@@ -118,7 +118,7 @@ export default function ModelManagerTab() {
           value={defaultModel}
           onChange={(e) => setDefaultModel(e.target.value)}
           disabled={runnableModels.length === 0}
-          className="select select-bordered select-sm w-full sm:w-48 bg-base-content/5 backdrop-blur-sm font-sans cursor-pointer focus:outline-hidden text-base h-9 px-3"
+          className="select select-bordered select-sm w-full sm:w-48 bg-base-200 font-sans cursor-pointer focus:outline-hidden text-base h-9 px-3"
         >
           {runnableModels.length === 0 ? (
             <option value="">No models installed</option>
@@ -146,7 +146,7 @@ export default function ModelManagerTab() {
           value={defaultImageModel}
           onChange={(e) => setDefaultImageModel(e.target.value)}
           disabled={imageModels.length === 0}
-          className="select select-bordered select-sm w-full sm:w-48 bg-base-content/5 backdrop-blur-sm font-sans cursor-pointer focus:outline-hidden text-base h-9 px-3"
+          className="select select-bordered select-sm w-full sm:w-48 bg-base-200 font-sans cursor-pointer focus:outline-hidden text-base h-9 px-3"
         >
           {imageModels.length === 0 ? (
             <option value="">No image models installed</option>
@@ -174,7 +174,7 @@ export default function ModelManagerTab() {
           value={activeModel}
           onChange={(e) => setActiveModel(e.target.value)}
           disabled={runnableModels.length === 0}
-          className="select select-bordered select-sm w-full sm:w-48 bg-base-content/5 backdrop-blur-sm font-sans cursor-pointer focus:outline-hidden text-base h-9 px-3"
+          className="select select-bordered select-sm w-full sm:w-48 bg-base-200 font-sans cursor-pointer focus:outline-hidden text-base h-9 px-3"
         >
           {runnableModels.length === 0 ? (
             <option value="">No models installed</option>

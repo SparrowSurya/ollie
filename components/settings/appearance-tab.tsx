@@ -22,7 +22,7 @@ export default function AppearanceTab() {
         <select
           value={theme}
           onChange={(e) => setTheme(e.target.value)}
-          className="select select-bordered select-sm w-full sm:w-48 bg-base-content/5 backdrop-blur-sm font-sans cursor-pointer focus:outline-hidden text-base h-9 px-3"
+          className="select select-bordered select-sm w-full sm:w-48 bg-base-200 font-sans cursor-pointer focus:outline-hidden text-base h-9 px-3"
         >
           <option value="latte">Latte (Light)</option>
           <option value="frappe">Frappé (Dark)</option>
@@ -44,7 +44,7 @@ export default function AppearanceTab() {
         <select
           value={accent}
           onChange={(e) => setAccent(e.target.value)}
-          className="select select-bordered select-sm w-full sm:w-48 bg-base-content/5 backdrop-blur-sm font-sans cursor-pointer focus:outline-hidden text-base h-9 px-3"
+          className="select select-bordered select-sm w-full sm:w-48 bg-base-200 font-sans cursor-pointer focus:outline-hidden text-base h-9 px-3"
         >
           {Object.entries(ACCENT_COLORS).map(([key, color]) => (
             <option key={key} value={key}>

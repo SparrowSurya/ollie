@@ -155,7 +155,7 @@ export default function ChatView({
               value={activeSelected}
               onChange={(e) => handleModelChange(e.target.value)}
               disabled={runnableModels.length === 0}
-              className="select select-bordered select-sm w-full bg-base-content/5 backdrop-blur-sm border-user-accent/30 focus:border-user-accent focus:ring-user-accent/30 focus:outline-hidden cursor-pointer text-base h-9 px-3"
+              className="select select-bordered select-sm w-full bg-base-200 border-user-accent/30 focus:border-user-accent focus:ring-user-accent/30 focus:outline-hidden cursor-pointer text-base h-9 px-3"
             >
               {runnableModels.length === 0 ? (
                 <option value="">No models installed</option>
