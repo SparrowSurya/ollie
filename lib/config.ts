@@ -21,6 +21,16 @@ export interface EnvConfig {
    * Storage path for user file uploads (default: 'storage')
    */
   storagePath?: string;
+
+  /**
+   * Maximum count of images a user can upload at once (default: 5)
+   */
+  maxImageCount: number;
+
+  /**
+   * Maximum size limit in MB for each uploaded image (default: 5)
+   */
+  maxImageSizeMb: number;
 }
 
 /**
@@ -29,9 +39,11 @@ export interface EnvConfig {
  */
 export default function readEnv(): EnvConfig {
   return {
-    envType: Bun.env.ENV_TYPE ?? "dev",
-    ollamaHost: Bun.env.OLLAMA_BASE_URL ?? "http://localhost:11434",
-    keepAlive: Bun.env.keepAlive ?? Bun.env.KEEP_ALIVE ?? "5m",
-    storagePath: Bun.env.STORAGE_PATH ?? 'storage',
+    envType: process.env.ENV_TYPE ?? "dev",
+    ollamaHost: process.env.OLLAMA_BASE_URL ?? "http://localhost:11434",
+    keepAlive: process.env.KEEP_ALIVE ?? "5m",
+    storagePath: process.env.STORAGE_PATH ?? 'storage',
+    maxImageCount: Number(process.env.NEXT_PUBLIC_MAX_IMAGE_COUNT ?? process.env.MAX_IMAGE_COUNT ?? 5),
+    maxImageSizeMb: Number(process.env.NEXT_PUBLIC_MAX_IMAGE_SIZE_MB ?? process.env.MAX_IMAGE_SIZE_MB ?? 5),
   };
 }

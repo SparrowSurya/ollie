@@ -18,8 +18,8 @@ export async function POST(req: Request) {
     logger.info(`Received file upload request for ${files.length} file(s)`);
 
     // Max limit validation
-    if (files.length > 5) {
-      return NextResponse.json({ error: "Cannot upload more than 5 images at once." }, { status: 400 });
+    if (files.length > env.maxImageCount) {
+      return NextResponse.json({ error: `Cannot upload more than ${env.maxImageCount} images at once.` }, { status: 400 });
     }
 
     // Determine storage location
@@ -38,10 +38,11 @@ export async function POST(req: Request) {
       const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
       logger.info(`Uploading file: "${file.name}" (Size: ${fileSizeMB} MB, Type: "${file.type}")`);
 
-      // Validate file size (5MB limit)
-      if (file.size > 5 * 1024 * 1024) {
-        logger.warning(`File upload validation failed: "${file.name}" exceeds the 5MB limit`);
-        return NextResponse.json({ error: `File ${file.name} exceeds the 5MB limit` }, { status: 400 });
+      // Validate file size
+      const maxSizeInBytes = env.maxImageSizeMb * 1024 * 1024;
+      if (file.size > maxSizeInBytes) {
+        logger.warning(`File upload validation failed: "${file.name}" exceeds the ${env.maxImageSizeMb}MB limit`);
+        return NextResponse.json({ error: `File ${file.name} exceeds the ${env.maxImageSizeMb}MB limit` }, { status: 400 });
       }
 
       // Validate file type (image only)

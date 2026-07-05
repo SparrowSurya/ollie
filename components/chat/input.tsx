@@ -27,6 +27,9 @@ export default function ChatInput({
     previewUrl: string;
   }
 
+  const MAX_IMAGE_COUNT = Number(process.env.NEXT_PUBLIC_MAX_IMAGE_COUNT || 5);
+  const MAX_IMAGE_SIZE_MB = Number(process.env.NEXT_PUBLIC_MAX_IMAGE_SIZE_MB || 5);
+
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [text, setText] = useState<string>("");
@@ -67,8 +70,8 @@ export default function ChatInput({
     if (!e.target.files) return;
     const files = Array.from(e.target.files);
 
-    if (attachments.length + files.length > 5) {
-      setFileError("Cannot upload more than 5 images at once.");
+    if (attachments.length + files.length > MAX_IMAGE_COUNT) {
+      setFileError(`Cannot upload more than ${MAX_IMAGE_COUNT} images at once.`);
       setTimeout(() => setFileError(null), 4000);
       return;
     }
@@ -80,8 +83,8 @@ export default function ChatInput({
         setTimeout(() => setFileError(null), 4000);
         continue;
       }
-      if (file.size > 5 * 1024 * 1024) {
-        setFileError(`File "${file.name}" exceeds the 5MB size limit.`);
+      if (file.size > MAX_IMAGE_SIZE_MB * 1024 * 1024) {
+        setFileError(`File "${file.name}" exceeds the ${MAX_IMAGE_SIZE_MB}MB size limit.`);
         setTimeout(() => setFileError(null), 4000);
         continue;
       }
