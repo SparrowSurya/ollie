@@ -5,7 +5,7 @@ import { OllamaService } from "@/lib/services/ollama";
 
 export async function POST(req: Request) {
   try {
-    const { content, threadId, model, customInstructions, images } = await req.json();
+    const { content, threadId, model, defaultImageModel, customInstructions, images } = await req.json();
 
     if (!content) {
       return NextResponse.json({ error: "Missing content" }, { status: 400 });
@@ -32,7 +32,7 @@ export async function POST(req: Request) {
     }
 
     // Handle standard Text Chat Model (stream response)
-    const stream = streamAgentResponse(content, activeThreadId, targetModel, customInstructions, images);
+    const stream = streamAgentResponse(content, activeThreadId, targetModel, customInstructions, images, defaultImageModel);
 
     return new Response(stream, {
       headers: {

@@ -380,6 +380,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             content: text,
             threadId: activeSessionId,
             model: activeModel,
+            defaultImageModel: defaultImageModel || undefined,
             customInstructions: customInstructions || "",
             images: uploadedUrls.length > 0 ? uploadedUrls : undefined,
           }),
@@ -435,6 +436,27 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         // Stream completed successfully, reload sessions to capture potential auto-title or updated order
         await fetchSessions();
 
+        // Sync messages from the database to load the generated images correctly into the message state gallery
+        try {
+          const syncRes = await fetch(`/api/sessions/messages?id=${activeSessionId}`);
+          if (syncRes.ok) {
+            const syncData = await syncRes.json();
+            setMessages(
+              (syncData.messages || []).map((m: DbMessageResponse) => ({
+                id: m.id,
+                role: m.role,
+                content: m.content,
+                timestamp: new Date(m.timestamp),
+                modelName: m.modelName || undefined,
+                images: m.images ? m.images.split(",") : undefined,
+                generatedImages: m.generatedImages ? m.generatedImages.split(",") : undefined,
+              }))
+            );
+          }
+        } catch (syncErr) {
+          console.error("Failed to sync message state after stream complete:", syncErr);
+        }
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (error: any) {
         console.error("Streaming error:", error);
@@ -455,7 +477,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         setIsGenerating(false);
       }
     },
-    [isGenerating, isBootstrapping, isModelLoaded, activeModel, activeSessionId, customInstructions, fetchSessions, urlSessionId, router]
+    [isGenerating, isBootstrapping, isModelLoaded, activeModel, activeSessionId, customInstructions, fetchSessions, urlSessionId, router, defaultImageModel]
   );
 
   const changeActiveModel = useCallback(async (modelName: string) => {

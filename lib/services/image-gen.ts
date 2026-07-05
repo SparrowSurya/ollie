@@ -18,7 +18,8 @@ export interface GeneratedImageResponse {
 export async function generateImage(
   prompt: string,
   activeThreadId: string,
-  targetModel: string
+  targetModel: string,
+  skipDbSave = false
 ): Promise<GeneratedImageResponse> {
   const ollamaRes = await fetch(`${env.ollamaHost}/v1/images/generations`, {
     method: "POST",
@@ -58,29 +59,32 @@ export async function generateImage(
 
   await fs.writeFile(filePath, buffer);
 
-  // Ensure the session row exists in the database to avoid foreign key violations (P2003)
-  const session = await getSession(activeThreadId);
-  if (!session) {
-    const title = prompt.length > 30 ? `${prompt.slice(0, 30)}...` : prompt;
-    await createSession(activeThreadId, title, targetModel);
-  }
-
-  const userMsgId = crypto.randomUUID();
-  const assistantMsgId = crypto.randomUUID();
   const imageUrlPath = `/api/uploads/${filename}`;
 
-  // Save user prompt message
-  await saveMessage(userMsgId, activeThreadId, "user", prompt, undefined, undefined);
-  // Save assistant message with generatedImages field
-  await saveMessage(
-    assistantMsgId,
-    activeThreadId,
-    "assistant",
-    "",
-    targetModel,
-    undefined,
-    imageUrlPath
-  );
+  if (!skipDbSave) {
+    // Ensure the session row exists in the database to avoid foreign key violations (P2003)
+    const session = await getSession(activeThreadId);
+    if (!session) {
+      const title = prompt.length > 30 ? `${prompt.slice(0, 30)}...` : prompt;
+      await createSession(activeThreadId, title, targetModel);
+    }
+
+    const userMsgId = crypto.randomUUID();
+    const assistantMsgId = crypto.randomUUID();
+
+    // Save user prompt message
+    await saveMessage(userMsgId, activeThreadId, "user", prompt, undefined, undefined);
+    // Save assistant message with generatedImages field
+    await saveMessage(
+      assistantMsgId,
+      activeThreadId,
+      "assistant",
+      "",
+      targetModel,
+      undefined,
+      imageUrlPath
+    );
+  }
 
   return {
     content: "",

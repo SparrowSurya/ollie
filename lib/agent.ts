@@ -2,10 +2,12 @@ import { ChatOllama } from "@langchain/ollama";
 import { MessagesAnnotation, StateGraph, MemorySaver } from "@langchain/langgraph";
 import { HumanMessage, SystemMessage, AIMessage } from "@langchain/core/messages";
 import { RunnableConfig } from "@langchain/core/runnables";
+import { ToolNode } from "@langchain/langgraph/prebuilt";
 import path from "path";
 import fs from "fs/promises";
 import readEnv from "./config";
 import { createSession, updateSessionTitle, updateSessionModel, getMessages, saveMessage } from "./db";
+import { agentTools } from "./tools";
 
 // Read current environment host configuration
 const env = readEnv();
@@ -95,7 +97,7 @@ const callModel = async (state: typeof MessagesAnnotation.State, config?: Runnab
   const customInstructions = config?.configurable?.custom_instructions;
   const hasThinking = await supportsThinking(modelName);
 
-  const dynamicModel = new ChatOllama({
+  const chatModel = new ChatOllama({
     model: modelName,
     baseUrl: env.ollamaHost,
     keepAlive: env.keepAlive,
@@ -103,9 +105,9 @@ const callModel = async (state: typeof MessagesAnnotation.State, config?: Runnab
   });
 
   // Patch client.chat to merge consecutive user messages (due to LangChain splitting content parts)
-  const originalChat = dynamicModel.client.chat.bind(dynamicModel.client);
+  const originalChat = chatModel.client.chat.bind(chatModel.client);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (dynamicModel.client as any).chat = async function (args: any) {
+  (chatModel.client as any).chat = async function (args: any) {
     if (args && Array.isArray(args.messages)) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const mergedMessages: any[] = [];
@@ -129,20 +131,36 @@ const callModel = async (state: typeof MessagesAnnotation.State, config?: Runnab
     return originalChat(args);
   };
 
+  const dynamicModel = chatModel.bindTools(agentTools);
+
   let messages = state.messages;
   if (customInstructions && typeof customInstructions === "string" && customInstructions.trim()) {
     messages = [new SystemMessage(customInstructions), ...messages];
   }
 
-  const response = await dynamicModel.invoke(messages);
+  const response = await dynamicModel.invoke(messages, config);
   return { messages: [response] };
+};
+
+// Define tool execution node
+const toolNode = new ToolNode(agentTools);
+
+// Define routing logic for tool execution
+const shouldContinue = (state: typeof MessagesAnnotation.State) => {
+  const lastMessage = state.messages[state.messages.length - 1];
+  if (lastMessage instanceof AIMessage && lastMessage.tool_calls && lastMessage.tool_calls.length > 0) {
+    return "tools";
+  }
+  return "__end__";
 };
 
 // Define the LangGraph workflow
 const workflow = new StateGraph(MessagesAnnotation)
   .addNode("agent", callModel)
+  .addNode("tools", toolNode)
   .addEdge("__start__", "agent")
-  .addEdge("agent", "__end__");
+  .addConditionalEdges("agent", shouldContinue)
+  .addEdge("tools", "agent");
 
 // Compile the graph with MemorySaver for in-memory session persistence
 const app = workflow.compile({ checkpointer: new MemorySaver() });
@@ -199,7 +217,8 @@ export function streamAgentResponse(
   threadId: string,
   modelName?: string,
   customInstructions?: string,
-  images?: string[]
+  images?: string[],
+  defaultImageModel?: string
 ): ReadableStream {
   const encoder = new TextEncoder();
 
@@ -250,6 +269,7 @@ export function streamAgentResponse(
               thread_id: threadId,
               model_name: targetModel,
               custom_instructions: customInstructions,
+              image_model: defaultImageModel,
             },
           }
         );
@@ -291,7 +311,25 @@ export function streamAgentResponse(
 
         // 5. Save the assistant's complete generated message to the database
         const assistantMsgId = crypto.randomUUID();
-        await saveMessage(assistantMsgId, threadId, "assistant", assistantContent, targetModel);
+
+        // Extract markdown image links
+        const imageRegex = /!\[.*?\]\((.*?)\)/g;
+        const generatedImagesList: string[] = [];
+        let match;
+        while ((match = imageRegex.exec(assistantContent)) !== null) {
+          generatedImagesList.push(match[1]);
+        }
+        const generatedImagesString = generatedImagesList.length > 0 ? generatedImagesList.join(",") : undefined;
+
+        await saveMessage(
+          assistantMsgId,
+          threadId,
+          "assistant",
+          assistantContent,
+          targetModel,
+          undefined,
+          generatedImagesString
+        );
 
         // 6. Auto-generate title if this is the first message in this session
         const dbMessages = await getMessages(threadId);
