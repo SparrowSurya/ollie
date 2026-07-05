@@ -66,7 +66,7 @@ export default function ChatMessage({
   if (isUser) {
     return (
       <div className="flex justify-end w-full my-2">
-        <div className="bg-base-200 text-base-content max-w-[70%] px-4 py-3 rounded-2xl rounded-tr-xs shadow-xs text-base font-sans whitespace-pre-wrap">
+        <div className="glass-card text-base-content max-w-[70%] px-4 py-3 rounded-2xl rounded-tr-xs shadow-md text-base font-sans whitespace-pre-wrap">
           {content}
         </div>
       </div>
@@ -86,7 +86,7 @@ export default function ChatMessage({
       {hasThinking && (
         <details
           open={isStillThinking}
-          className="mb-4 group border-l-2 border-base-content/15 pl-4 select-none w-full"
+          className="mb-4 group border-l-2 border-user-accent/20 pl-4 select-none w-full"
         >
           <summary className="cursor-pointer text-xs font-medium tracking-wide uppercase text-base-content/50 hover:text-base-content flex items-center gap-2 list-none outline-hidden">
             {isStillThinking ? "Thinking Process..." : "Thought Process"}

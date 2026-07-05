@@ -111,7 +111,7 @@ export default function Sidebar({
               setIsMobileOpen(true);
             }
           }}
-          className="fixed top-4 left-4 z-40 btn btn-ghost btn-circle text-base-content/60 hover:text-base-content hover:bg-base-200"
+          className="fixed top-4 left-4 z-40 btn btn-ghost btn-circle text-base-content/60 hover:text-base-content hover:bg-base-content/10 backdrop-blur-sm"
           title="Expand sidebar"
         >
           <Menu className="w-5 h-5" />
@@ -120,7 +120,7 @@ export default function Sidebar({
         /* Expand button visible only on mobile when drawer is closed */
         <button
           onClick={() => setIsMobileOpen(true)}
-          className="lg:hidden fixed top-4 left-4 z-40 btn btn-ghost btn-circle text-base-content/60 hover:text-base-content hover:bg-base-200"
+          className="lg:hidden fixed top-4 left-4 z-40 btn btn-ghost btn-circle text-base-content/60 hover:text-base-content hover:bg-base-content/10 backdrop-blur-sm"
           title="Expand sidebar"
         >
           <Menu className="w-5 h-5" />
@@ -137,7 +137,7 @@ export default function Sidebar({
 
       {/* Sidebar Container */}
       <aside
-        className={`fixed lg:static top-0 left-0 bottom-0 z-50 bg-base-200 border-r border-base-content/10 flex flex-col h-full transition-all duration-300 select-none ${
+        className={`fixed lg:static top-0 left-0 bottom-0 z-50 glass-card border-r flex flex-col h-full transition-all duration-300 select-none ${
           isMobileOpen
             ? "w-64 translate-x-0"
             : isExpanded
@@ -146,7 +146,7 @@ export default function Sidebar({
         }`}
       >
         {/* Header section (collapse button) */}
-        <div className="p-4 border-b border-base-content/5 flex items-center justify-end shrink-0 h-14">
+        <div className="p-4 border-b border-base-content/8 flex items-center justify-end shrink-0 h-14">
           <button
             onClick={() => {
               if (window.innerWidth >= 1024) {
@@ -233,7 +233,7 @@ export default function Sidebar({
                         </div>
                         <ul
                           tabIndex={0}
-                          className="dropdown-content menu p-1.5 shadow-lg bg-base-300 border border-base-content/10 rounded-xl w-28 text-sm font-sans font-semibold text-base-content/85 z-50 mt-1"
+                          className="dropdown-content menu p-1.5 shadow-xl glass-card rounded-xl w-28 text-sm font-sans font-semibold text-base-content/85 z-50 mt-1"
                         >
                           <li>
                             <button
@@ -273,7 +273,7 @@ export default function Sidebar({
             onClick={cancelDelete}
           />
           {/* Dialog */}
-          <div className="relative bg-base-200 border border-base-content/10 rounded-2xl shadow-2xl p-6 w-80 flex flex-col gap-4 animate-fade-in">
+          <div className="relative glass-card rounded-2xl shadow-2xl p-6 w-80 flex flex-col gap-4 animate-fade-in">
             <h3 className="text-base font-bold text-base-content">Delete Session?</h3>
             <p className="text-sm text-base-content/70 leading-relaxed">
               This conversation will be permanently deleted and cannot be recovered.

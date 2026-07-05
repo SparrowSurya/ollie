@@ -53,7 +53,7 @@ export default function GlobalSettings() {
           <div
             tabIndex={0}
             role="button"
-            className="btn btn-ghost btn-circle text-user-accent animate-pulse relative hover:bg-base-200"
+            className="btn btn-ghost btn-circle text-user-accent animate-pulse relative hover:bg-base-content/10 backdrop-blur-sm"
             title="View active model downloads"
           >
             <Download className="w-5 h-5 text-user-accent" />
@@ -64,7 +64,7 @@ export default function GlobalSettings() {
           </div>
           <div
             tabIndex={0}
-            className="dropdown-content card card-compact w-64 p-3.5 shadow-2xl bg-base-200 border border-base-content/10 text-base-content mt-2 rounded-xl"
+            className="dropdown-content card card-compact w-64 p-3.5 shadow-2xl glass-card text-base-content mt-2 rounded-xl"
           >
             <h4 className="font-bold text-xs uppercase tracking-wider mb-2 border-b border-base-content/5 pb-1">
               Active Downloads
@@ -105,7 +105,7 @@ export default function GlobalSettings() {
       {/* Floating Settings Button in Top-Right Corner of screen */}
       <button
         onClick={() => setIsSettingsOpen(true)}
-        className="fixed top-4 right-4 btn btn-ghost btn-circle z-40 text-base-content/60 hover:text-base-content hover:bg-base-200"
+        className="fixed top-4 right-4 btn btn-ghost btn-circle z-40 text-base-content/60 hover:text-base-content hover:bg-base-content/10 backdrop-blur-sm"
         title="Open settings"
       >
         <Settings className="w-5 h-5" />

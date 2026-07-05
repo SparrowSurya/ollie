@@ -138,7 +138,7 @@ export default function ChatView({
   if (!isModelLoaded) {
     return (
       <div className="flex-1 flex flex-col justify-center items-center w-full h-full max-w-md mx-auto px-6 select-none animate-fade-in relative">
-        <div className="bg-base-200 border border-base-content/10 rounded-2xl shadow-xl p-6 w-full flex flex-col gap-4 text-center">
+        <div className="glass-card border border-base-content/10 rounded-2xl shadow-xl p-6 w-full flex flex-col gap-4 text-center">
           <h3 className="text-lg font-bold uppercase tracking-wider text-base-content">
             Setup Session
           </h3>
@@ -155,7 +155,7 @@ export default function ChatView({
               value={activeSelected}
               onChange={(e) => handleModelChange(e.target.value)}
               disabled={runnableModels.length === 0}
-              className="select select-bordered select-sm w-full bg-base-300 border-user-accent/30 focus:border-user-accent focus:ring-user-accent/30 focus:outline-hidden cursor-pointer text-base h-9 px-3"
+              className="select select-bordered select-sm w-full bg-base-content/5 backdrop-blur-sm border-user-accent/30 focus:border-user-accent focus:ring-user-accent/30 focus:outline-hidden cursor-pointer text-base h-9 px-3"
             >
               {runnableModels.length === 0 ? (
                 <option value="">No models installed</option>
@@ -178,7 +178,7 @@ export default function ChatView({
               value={localInstructions}
               onChange={(e) => setLocalInstructions(e.target.value)}
               placeholder="Enter instructions to guide the model's behavior..."
-              className="textarea textarea-bordered w-full bg-base-300 border-user-accent/30 focus:border-user-accent focus:ring-user-accent/30 focus:outline-hidden text-sm h-20 px-3 py-2 resize-none leading-relaxed font-sans"
+              className="textarea textarea-bordered w-full bg-base-content/5 backdrop-blur-sm border-user-accent/30 focus:border-user-accent focus:ring-user-accent/30 focus:outline-hidden text-sm h-20 px-3 py-2 resize-none leading-relaxed font-sans"
             />
           </div>
 

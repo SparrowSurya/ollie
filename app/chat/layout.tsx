@@ -35,7 +35,7 @@ function ChatLayoutInner({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-base-100 font-sans">
+    <div className="flex h-screen w-screen overflow-hidden bg-transparent font-sans relative z-10">
       {/* Thread list sidebar on the left - stays mounted across dynamic page routes */}
       <Sidebar
         sessions={sessions}

@@ -47,11 +47,12 @@ export default function SettingsDialog({ isOpen, onClose }: Readonly<SettingsDia
   return (
     <div
       onClick={handleBackdropClick}
-      className="fixed inset-0 bg-black/15 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in"
+      className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in"
     >
       <div
         ref={modalRef}
-        className="bg-base-200 text-base-content rounded-2xl border border-base-content/10 w-full max-w-4xl h-110 max-h-[90vh] shadow-2xl p-6 overflow-hidden flex flex-col select-none relative"
+        className="glass-card text-base-content rounded-2xl w-full max-w-4xl h-110 max-h-[90vh] shadow-2xl p-6 overflow-hidden flex flex-col select-none relative"
+        style={{ backgroundColor: "color-mix(in srgb, var(--color-base-200) 80%, transparent)" }}
       >
         {/* Header: Title is always left-aligned, close button is on the right */}
         <div className="flex items-center justify-between border-b border-base-content/10 pb-4 mb-5 shrink-0">
@@ -66,7 +67,7 @@ export default function SettingsDialog({ isOpen, onClose }: Readonly<SettingsDia
           </h3>
           <button
             onClick={onClose}
-            className="btn btn-sm btn-ghost btn-circle text-base-content/60 hover:text-base-content hover:bg-base-200 focus:outline-hidden"
+            className="btn btn-sm btn-ghost btn-circle text-base-content/60 hover:text-base-content hover:bg-base-content/10 focus:outline-hidden"
           >
             <X size={18} />
           </button>

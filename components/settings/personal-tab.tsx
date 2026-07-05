@@ -21,7 +21,7 @@ export default function PersonalTab() {
         value={customInstructions}
         onChange={(e) => setCustomInstructions(e.target.value)}
         placeholder="e.g. You are a senior software engineer. Reply with concise TypeScript code blocks, utilizing ESNext features. Keep prose explanation to a absolute minimum."
-        className="textarea textarea-bordered bg-base-300 w-full h-55 text-sm font-sans focus:outline-hidden rounded-xl p-3 border-base-content/15 resize-none leading-relaxed mt-1 select-text"
+        className="textarea textarea-bordered bg-base-content/5 backdrop-blur-sm w-full h-55 text-sm font-sans focus:outline-hidden rounded-xl p-3 border-base-content/15 resize-none leading-relaxed mt-1 select-text"
       />
     </div>
   );

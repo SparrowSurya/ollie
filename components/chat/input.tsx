@@ -58,7 +58,7 @@ export default function ChatInput({
 
   return (
     <div
-      className="flex flex-col bg-base-300 border border-base-content/20 rounded-2xl md:rounded-3xl p-3 px-4 transition-all shadow-xs focus-within:border-user-accent focus-within:ring-1 focus-within:ring-user-accent/30 gap-1.5"
+      className="flex flex-col glass-card rounded-2xl md:rounded-3xl p-3 px-4 transition-all shadow-lg focus-within:border-user-accent focus-within:ring-1 focus-within:ring-user-accent/30 gap-1.5"
     >
       <textarea
         ref={textareaRef}
@@ -86,7 +86,7 @@ export default function ChatInput({
               </div>
               <ul
                 tabIndex={0}
-                className="dropdown-content menu p-1.5 shadow-xl bg-base-200 border border-base-content/10 rounded-xl w-48 text-[11px] font-mono font-bold text-base-content/85 z-50 mb-1.5"
+                className="dropdown-content menu p-1.5 shadow-xl glass-card rounded-xl w-48 text-[11px] font-mono font-bold text-base-content/85 z-50 mb-1.5"
               >
                 {runnableModels.map((m) => (
                   <li key={m}>

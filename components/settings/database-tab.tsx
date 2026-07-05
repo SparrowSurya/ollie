@@ -8,7 +8,7 @@ export default function DatabaseTab() {
       <span className="text-base font-bold uppercase tracking-wider text-base-content">
         Database History:
       </span>
-      <p className="text-base text-base-content/80 italic bg-base-300 p-4 rounded-xl border border-base-content/5">
+      <p className="text-base text-base-content/80 italic glass-card p-4 rounded-xl">
         Currently running: SQLite (No active sessions saved)
       </p>
     </div>

@@ -115,7 +115,7 @@ export default function ModelManagerTab() {
           value={defaultModel}
           onChange={(e) => setDefaultModel(e.target.value)}
           disabled={runnableModels.length === 0}
-          className="select select-bordered select-sm w-full sm:w-48 bg-base-300 font-sans cursor-pointer focus:outline-hidden text-base h-9 px-3"
+          className="select select-bordered select-sm w-full sm:w-48 bg-base-content/5 backdrop-blur-sm font-sans cursor-pointer focus:outline-hidden text-base h-9 px-3"
         >
           {runnableModels.length === 0 ? (
             <option value="">No models installed</option>
@@ -143,7 +143,7 @@ export default function ModelManagerTab() {
           value={activeModel}
           onChange={(e) => setActiveModel(e.target.value)}
           disabled={runnableModels.length === 0}
-          className="select select-bordered select-sm w-full sm:w-48 bg-base-300 font-sans cursor-pointer focus:outline-hidden text-base h-9 px-3"
+          className="select select-bordered select-sm w-full sm:w-48 bg-base-content/5 backdrop-blur-sm font-sans cursor-pointer focus:outline-hidden text-base h-9 px-3"
         >
           {runnableModels.length === 0 ? (
             <option value="">No models installed</option>
@@ -178,7 +178,7 @@ export default function ModelManagerTab() {
 
               return (
                 <div key={name} className="flex flex-col w-full">
-                  <div className="flex items-center justify-between py-1.5 px-3 bg-base-300/40 rounded-xl border border-base-content/5 hover:border-base-content/10 transition-all gap-4">
+                  <div className="flex items-center justify-between py-1.5 px-3 bg-base-content/5 backdrop-blur-xs rounded-xl border border-base-content/5 hover:border-base-content/10 transition-all gap-4">
                     <span
                       onDoubleClick={() => handleModelDoubleClick(name)}
                       className="text-xs font-mono font-bold text-base-content leading-none cursor-pointer hover:underline py-1 flex-1 text-left truncate"
@@ -251,7 +251,7 @@ export default function ModelManagerTab() {
 
                   {/* Collapsible Details Pane */}
                   {expandedModel === name && (
-                    <div className="mt-1.5 p-3 bg-base-300/60 rounded-xl border border-base-content/5 text-left text-xs font-sans text-base-content/85 flex flex-col gap-1.5 select-text animate-fade-in mx-1">
+                    <div className="mt-1.5 p-3 bg-base-content/5 backdrop-blur-sm rounded-xl border border-base-content/5 text-left text-xs font-sans text-base-content/85 flex flex-col gap-1.5 select-text animate-fade-in mx-1">
                       {loadingDetails[name] ? (
                         <div className="flex items-center gap-2 text-base-content/50 select-none py-1.5">
                           <span className="loading loading-spinner loading-xs text-user-accent"></span>
@@ -339,7 +339,7 @@ export default function ModelManagerTab() {
             placeholder="Enter model name (e.g. qwen2.5:3b)"
             value={customModelName}
             onChange={(e) => setCustomModelName(e.target.value)}
-            className="input input-bordered input-sm flex-1 bg-base-300 border-base-content/15 font-sans focus:outline-hidden text-base h-8 px-2.5 rounded-lg"
+            className="input input-bordered input-sm flex-1 bg-base-content/5 backdrop-blur-sm border-base-content/15 font-sans focus:outline-hidden text-base h-8 px-2.5 rounded-lg"
           />
           <button
             onClick={handlePullCustomModel}
