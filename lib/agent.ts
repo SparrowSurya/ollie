@@ -2,6 +2,8 @@ import { ChatOllama } from "@langchain/ollama";
 import { MessagesAnnotation, StateGraph, MemorySaver } from "@langchain/langgraph";
 import { HumanMessage, SystemMessage, AIMessage } from "@langchain/core/messages";
 import { RunnableConfig } from "@langchain/core/runnables";
+import path from "path";
+import fs from "fs/promises";
 import readEnv from "./config";
 import { createSession, updateSessionTitle, updateSessionModel, getMessages, saveMessage } from "./db";
 
@@ -42,6 +44,51 @@ async function supportsThinking(modelName: string): Promise<boolean> {
   }
 }
 
+const MIME_TYPES: Record<string, string> = {
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".png": "image/png",
+  ".webp": "image/webp",
+  ".gif": "image/gif",
+};
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function buildMessageContent(text: string, imageUrls?: string[]): Promise<any> {
+  if (!imageUrls || imageUrls.length === 0) {
+    return text;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const contentParts: any[] = [{ type: "text", text }];
+
+  for (const imgUrl of imageUrls) {
+    if (!imgUrl.trim()) continue;
+    try {
+      const filename = path.basename(imgUrl);
+      const baseStorageDir = env.storagePath 
+        ? path.resolve(env.storagePath) 
+        : path.join(process.cwd(), "storage");
+      const filePath = path.join(baseStorageDir, "upload", filename);
+      
+      const fileBuffer = await fs.readFile(filePath);
+      const ext = path.extname(filename).toLowerCase();
+      const mimeType = MIME_TYPES[ext] || "image/jpeg";
+      const base64Data = fileBuffer.toString("base64");
+      
+      contentParts.push({
+        type: "image_url",
+        image_url: {
+          url: `data:${mimeType};base64,${base64Data}`,
+        },
+      });
+    } catch (err) {
+      console.error(`Failed to read image ${imgUrl} for model content:`, err);
+    }
+  }
+
+  return contentParts;
+}
+
 // Node function: calls the model dynamically with the configured model name
 const callModel = async (state: typeof MessagesAnnotation.State, config?: RunnableConfig) => {
   const modelName = config?.configurable?.model_name || (await getDefaultModel());
@@ -54,6 +101,33 @@ const callModel = async (state: typeof MessagesAnnotation.State, config?: Runnab
     keepAlive: env.keepAlive,
     ...(hasThinking ? { think: true } : {}),
   });
+
+  // Patch client.chat to merge consecutive user messages (due to LangChain splitting content parts)
+  const originalChat = dynamicModel.client.chat.bind(dynamicModel.client);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (dynamicModel.client as any).chat = async function (args: any) {
+    if (args && Array.isArray(args.messages)) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const mergedMessages: any[] = [];
+      for (const msg of args.messages) {
+        if (
+          mergedMessages.length > 0 &&
+          msg.role === "user" &&
+          mergedMessages[mergedMessages.length - 1].role === "user"
+        ) {
+          const prevMsg = mergedMessages[mergedMessages.length - 1];
+          prevMsg.content = (prevMsg.content || "") + (msg.content || "");
+          if (msg.images) {
+            prevMsg.images = [...(prevMsg.images || []), ...msg.images];
+          }
+        } else {
+          mergedMessages.push({ ...msg });
+        }
+      }
+      args.messages = mergedMessages;
+    }
+    return originalChat(args);
+  };
 
   let messages = state.messages;
   if (customInstructions && typeof customInstructions === "string" && customInstructions.trim()) {
@@ -144,13 +218,17 @@ export function streamAgentResponse(
         if (!state.values || !state.values.messages || state.values.messages.length === 0) {
           const dbMessages = await getMessages(threadId);
           if (dbMessages.length > 0) {
-            const langchainMessages = dbMessages.map((m) => {
-              if (m.role === "user") {
-                return new HumanMessage({ content: m.content, id: m.id });
-              } else {
-                return new AIMessage({ content: m.content, id: m.id });
-              }
-            });
+            const langchainMessages = await Promise.all(
+              dbMessages.map(async (m) => {
+                if (m.role === "user") {
+                  const mImages = m.images ? m.images.split(",") : undefined;
+                  const content = await buildMessageContent(m.content, mImages);
+                  return new HumanMessage({ content, id: m.id });
+                } else {
+                  return new AIMessage({ content: m.content, id: m.id });
+                }
+              })
+            );
             await app.updateState(
               { configurable: { thread_id: threadId } },
               { messages: langchainMessages }
@@ -163,8 +241,9 @@ export function streamAgentResponse(
         await saveMessage(userMsgId, threadId, "user", message, undefined, images?.join(","));
 
         // 4. Run the graph and listen to stream events
+        const userMessageContent = await buildMessageContent(message, images);
         const eventStream = app.streamEvents(
-          { messages: [new HumanMessage(message)] },
+          { messages: [new HumanMessage({ content: userMessageContent })] },
           {
             version: "v2",
             configurable: {
