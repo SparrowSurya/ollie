@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Plus, Menu, X, MoreVertical, Sparkles } from "lucide-react";
 import { DbSession } from "@/contexts/ChatContext";
+import { useOllama } from "@/contexts/OllamaContext";
 
 interface SidebarProps {
   sessions: DbSession[];
@@ -27,6 +28,8 @@ export default function Sidebar({
   isExpanded,
   onSetExpanded,
 }: Readonly<SidebarProps>) {
+  const { imageModels } = useOllama();
+  
   // Mobile drawer overlay backdrop open state (defaults to closed)
   const [isMobileOpen, setIsMobileOpen] = useState<boolean>(false);
 
@@ -179,18 +182,20 @@ export default function Sidebar({
         </div>
 
         {/* Generate Image Action (Outlined Button) */}
-        <div className="p-3 pt-0 shrink-0">
-          <button
-            onClick={() => {
-              onNewImageChat?.();
-              setIsMobileOpen(false);
-            }}
-            className="btn btn-sm btn-outline border-user-accent/50 text-user-accent hover:bg-user-accent hover:border-user-accent hover:text-base-100 w-full flex items-center justify-center gap-1.5 rounded-xl uppercase tracking-wider font-bold text-[11px]"
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Generate Image</span>
-          </button>
-        </div>
+        {imageModels && imageModels.length > 0 && (
+          <div className="p-3 pt-0 shrink-0">
+            <button
+              onClick={() => {
+                onNewImageChat?.();
+                setIsMobileOpen(false);
+              }}
+              className="btn btn-sm btn-outline border-user-accent/50 text-user-accent hover:bg-user-accent hover:border-user-accent hover:text-base-100 w-full flex items-center justify-center gap-1.5 rounded-xl uppercase tracking-wider font-bold text-[11px]"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Generate Image</span>
+            </button>
+          </div>
+        )}
 
         {/* History List */}
         <div className="flex-1 overflow-y-auto px-2 pb-4 no-scrollbar">

@@ -114,22 +114,29 @@ export default function ModelManagerTab() {
             The model used automatically when starting a new chat session.
           </span>
         </div>
-        <select
-          value={defaultModel}
-          onChange={(e) => setDefaultModel(e.target.value)}
-          disabled={runnableModels.length === 0}
-          className="select select-bordered select-sm w-full sm:w-48 bg-base-200 font-sans cursor-pointer focus:outline-hidden text-base h-9 px-3"
-        >
-          {runnableModels.length === 0 ? (
-            <option value="">No models installed</option>
-          ) : (
-            runnableModels.map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))
+        <div className="flex flex-col items-end gap-1.5 w-full sm:w-auto">
+          <select
+            value={defaultModel}
+            onChange={(e) => setDefaultModel(e.target.value)}
+            disabled={runnableModels.length === 0}
+            className="select select-bordered select-sm w-full sm:w-48 bg-base-200 font-sans cursor-pointer focus:outline-hidden text-base h-9 px-3"
+          >
+            {runnableModels.length === 0 ? (
+              <option value="">No models installed</option>
+            ) : (
+              runnableModels.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))
+            )}
+          </select>
+          {runnableModels.length === 0 && (
+            <span className="text-[10px] text-error/85 font-mono italic text-right leading-tight max-w-48 select-none">
+              No models are installed.
+            </span>
           )}
-        </select>
+        </div>
       </div>
 
       {/* Default Image Model Select Row */}
@@ -142,22 +149,29 @@ export default function ModelManagerTab() {
             The model used automatically when generating local images.
           </span>
         </div>
-        <select
-          value={defaultImageModel}
-          onChange={(e) => setDefaultImageModel(e.target.value)}
-          disabled={imageModels.length === 0}
-          className="select select-bordered select-sm w-full sm:w-48 bg-base-200 font-sans cursor-pointer focus:outline-hidden text-base h-9 px-3"
-        >
-          {imageModels.length === 0 ? (
-            <option value="">No image models installed</option>
-          ) : (
-            imageModels.map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))
+        <div className="flex flex-col items-end gap-1.5 w-full sm:w-auto">
+          <select
+            value={defaultImageModel}
+            onChange={(e) => setDefaultImageModel(e.target.value)}
+            disabled={imageModels.length === 0}
+            className="select select-bordered select-sm w-full sm:w-48 bg-base-200 font-sans cursor-pointer focus:outline-hidden text-base h-9 px-3"
+          >
+            {imageModels.length === 0 ? (
+              <option value="">No image models installed</option>
+            ) : (
+              imageModels.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))
+            )}
+          </select>
+          {imageModels.length === 0 && (
+            <span className="text-[10px] text-error/85 font-mono italic text-right leading-tight max-w-48 select-none">
+              No model found with image capability.
+            </span>
           )}
-        </select>
+        </div>
       </div>
 
       {/* Active Model Select Row */}
@@ -170,22 +184,29 @@ export default function ModelManagerTab() {
             The model currently processing responses in this chat thread.
           </span>
         </div>
-        <select
-          value={activeModel}
-          onChange={(e) => setActiveModel(e.target.value)}
-          disabled={runnableModels.length === 0}
-          className="select select-bordered select-sm w-full sm:w-48 bg-base-200 font-sans cursor-pointer focus:outline-hidden text-base h-9 px-3"
-        >
-          {runnableModels.length === 0 ? (
-            <option value="">No models installed</option>
-          ) : (
-            runnableModels.map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))
+        <div className="flex flex-col items-end gap-1.5 w-full sm:w-auto">
+          <select
+            value={activeModel}
+            onChange={(e) => setActiveModel(e.target.value)}
+            disabled={runnableModels.length === 0}
+            className="select select-bordered select-sm w-full sm:w-48 bg-base-200 font-sans cursor-pointer focus:outline-hidden text-base h-9 px-3"
+          >
+            {runnableModels.length === 0 ? (
+              <option value="">No models installed</option>
+            ) : (
+              runnableModels.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))
+            )}
+          </select>
+          {runnableModels.length === 0 && (
+            <span className="text-[10px] text-error/85 font-mono italic text-right leading-tight max-w-48 select-none">
+              No models are installed.
+            </span>
           )}
-        </select>
+        </div>
       </div>
 
       {/* Installed Models Section */}
