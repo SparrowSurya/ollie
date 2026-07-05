@@ -320,3 +320,21 @@ input:focus, select:focus, textarea:focus,
 [data-theme="frappe"] .checkbox-theme-adaptive:checked {
   color: #11111b !important;
 }
+
+/* ============================================================
+   LIGHTBOX ACTIVE OVERLAYS TRANSITIONS
+   ============================================================ */
+
+body.lightbox-open .global-settings-btn {
+  opacity: 0.12 !important;
+  transform: translateX(-56px) scale(0.95);
+  pointer-events: none;
+  filter: blur(1px);
+}
+
+body.lightbox-open .global-download-btn {
+  opacity: 0.12 !important;
+  transform: translateX(-56px) scale(0.95);
+  pointer-events: none;
+  filter: blur(1px);
+}

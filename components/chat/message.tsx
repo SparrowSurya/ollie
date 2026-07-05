@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { MessageRole } from "./types";
 import { parseResponseParts } from "@/lib/markdown";
+import { X, ChevronLeft, ChevronRight } from "lucide-react";
 
 export interface ChatMessageProps {
   role: MessageRole;
@@ -18,6 +19,37 @@ export default function ChatMessage({
   images,
 }: Readonly<ChatMessageProps>) {
   const isUser = role === "user";
+  const [activeImageIndex, setActiveImageIndex] = useState<number | null>(null);
+
+  // Keyboard navigation listener for full screen modal
+  useEffect(() => {
+    if (activeImageIndex === null || !images || images.length === 0) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setActiveImageIndex(null);
+      } else if (e.key === "ArrowLeft" && images.length > 1) {
+        setActiveImageIndex((prev) => (prev !== null ? (prev - 1 + images.length) % images.length : null));
+      } else if (e.key === "ArrowRight" && images.length > 1) {
+        setActiveImageIndex((prev) => (prev !== null ? (prev + 1) % images.length : null));
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [activeImageIndex, images]);
+
+  // Toggle body class for lightbox state transitions
+  useEffect(() => {
+    if (activeImageIndex !== null) {
+      document.body.classList.add("lightbox-open");
+    } else {
+      document.body.classList.remove("lightbox-open");
+    }
+    return () => {
+      document.body.classList.remove("lightbox-open");
+    };
+  }, [activeImageIndex]);
 
   const handleCopyCodeClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement;
@@ -70,11 +102,11 @@ export default function ChatMessage({
       <div className="flex flex-col items-end w-full my-2">
         {images && images.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-2 max-w-[70%] justify-end select-none">
-            {images.map((src) => (
+            {images.map((src, index) => (
               <div
                 key={src}
                 className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden border border-base-content/10 group cursor-pointer hover:opacity-90 shadow-md transition-all"
-                onClick={() => window.open(src, "_blank")}
+                onClick={() => setActiveImageIndex(index)}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
@@ -89,6 +121,64 @@ export default function ChatMessage({
         <div className="glass-card text-base-content max-w-[70%] px-4 py-3 rounded-2xl rounded-tr-xs shadow-md text-base font-sans whitespace-pre-wrap">
           {content}
         </div>
+
+        {/* Lightbox full screen image modal */}
+        {activeImageIndex !== null && images && images[activeImageIndex] && (
+          <div className="fixed inset-0 bg-base-300/40 backdrop-blur-xl z-[150] flex items-center justify-center select-none animate-fade-in p-4 border border-base-content/5 shadow-2xl">
+            <div
+              className="absolute inset-0 cursor-zoom-out"
+              onClick={() => setActiveImageIndex(null)}
+            />
+
+            <button
+              onClick={() => setActiveImageIndex(null)}
+              className="absolute top-4 right-4 md:top-6 md:right-6 btn btn-circle bg-base-300/80 hover:bg-base-300 border border-base-content/15 text-base-content hover:scale-105 transition-all shadow-lg z-[160] w-10 h-10 md:w-12 md:h-12 flex items-center justify-center"
+              title="Close preview"
+            >
+              <X size={20} className="text-base-content" />
+            </button>
+
+            {images.length > 1 && (
+              <button
+                onClick={() =>
+                  setActiveImageIndex((prev) =>
+                    prev !== null ? (prev - 1 + images.length) % images.length : null
+                  )
+                }
+                className="absolute left-6 btn btn-circle btn-sm bg-base-content/10 hover:bg-base-content/20 border border-base-content/10 backdrop-blur-md text-base-content/85 hover:text-base-content shadow-lg transition-all z-[160] w-10 h-10"
+                title="Previous image"
+              >
+                <ChevronLeft size={20} />
+              </button>
+            )}
+
+            <div className="relative max-h-[85vh] max-w-[85vw] flex items-center justify-center z-[160]">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={images[activeImageIndex]}
+                alt="Expanded view"
+                className="max-h-[85vh] max-w-[85vw] object-contain rounded-xl shadow-2xl border border-base-content/10 transition-all"
+              />
+              {images.length > 1 && (
+                <span className="absolute -bottom-10 text-[11px] font-mono font-bold text-base-content/75 bg-base-content/10 border border-base-content/10 backdrop-blur-md px-3 py-1 rounded-full">
+                  {activeImageIndex + 1} / {images.length}
+                </span>
+              )}
+            </div>
+
+            {images.length > 1 && (
+              <button
+                onClick={() =>
+                  setActiveImageIndex((prev) => (prev !== null ? (prev + 1) % images.length : null))
+                }
+                className="absolute right-6 btn btn-circle btn-sm bg-base-content/10 hover:bg-base-content/20 border border-base-content/10 backdrop-blur-md text-base-content/85 hover:text-base-content shadow-lg transition-all z-[160] w-10 h-10"
+                title="Next image"
+              >
+                <ChevronRight size={20} />
+              </button>
+            )}
+          </div>
+        )}
       </div>
     );
   }
@@ -127,6 +217,64 @@ export default function ChatMessage({
           onClick={handleCopyCodeClick}
           dangerouslySetInnerHTML={{ __html: contentHtml }}
         />
+      )}
+
+      {/* Lightbox full screen image modal */}
+      {activeImageIndex !== null && images && images[activeImageIndex] && (
+        <div className="fixed inset-0 bg-base-300/40 backdrop-blur-xl z-[150] flex items-center justify-center select-none animate-fade-in p-4 border border-base-content/5 shadow-2xl">
+          <div
+            className="absolute inset-0 cursor-zoom-out"
+            onClick={() => setActiveImageIndex(null)}
+          />
+
+          <button
+            onClick={() => setActiveImageIndex(null)}
+            className="absolute top-4 right-4 md:top-6 md:right-6 btn btn-circle bg-base-300/80 hover:bg-base-300 border border-base-content/15 text-base-content hover:scale-105 transition-all shadow-lg z-[160] w-10 h-10 md:w-12 md:h-12 flex items-center justify-center"
+            title="Close preview"
+          >
+            <X size={20} className="text-base-content" />
+          </button>
+
+          {images.length > 1 && (
+            <button
+              onClick={() =>
+                setActiveImageIndex((prev) =>
+                  prev !== null ? (prev - 1 + images.length) % images.length : null
+                )
+              }
+              className="absolute left-6 btn btn-circle btn-sm bg-base-content/10 hover:bg-base-content/20 border border-base-content/10 backdrop-blur-md text-base-content/85 hover:text-base-content shadow-lg transition-all z-[160] w-10 h-10"
+              title="Previous image"
+            >
+              <ChevronLeft size={20} />
+            </button>
+          )}
+
+          <div className="relative max-h-[85vh] max-w-[85vw] flex items-center justify-center z-[160]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={images[activeImageIndex]}
+              alt="Expanded view"
+              className="max-h-[85vh] max-w-[85vw] object-contain rounded-xl shadow-2xl border border-base-content/10 transition-all"
+            />
+            {images.length > 1 && (
+              <span className="absolute -bottom-10 text-[11px] font-mono font-bold text-base-content/75 bg-base-content/10 border border-base-content/10 backdrop-blur-md px-3 py-1 rounded-full">
+                {activeImageIndex + 1} / {images.length}
+              </span>
+            )}
+          </div>
+
+          {images.length > 1 && (
+            <button
+              onClick={() =>
+                setActiveImageIndex((prev) => (prev !== null ? (prev + 1) % images.length : null))
+              }
+              className="absolute right-6 btn btn-circle btn-sm bg-base-content/10 hover:bg-base-content/20 border border-base-content/10 backdrop-blur-md text-base-content/85 hover:text-base-content shadow-lg transition-all z-[160] w-10 h-10"
+              title="Next image"
+            >
+              <ChevronRight size={20} />
+            </button>
+          )}
+        </div>
       )}
     </div>
   );

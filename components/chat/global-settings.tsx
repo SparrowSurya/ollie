@@ -49,7 +49,7 @@ export default function GlobalSettings() {
     <>
       {/* Pulsing Downloader Notification Icon (Left of settings gear, only visible during pulls) */}
       {hasActivePulls && (
-        <div className="fixed top-4 right-16 z-40 dropdown dropdown-end select-none">
+        <div className="fixed top-4 right-16 z-40 dropdown dropdown-end select-none global-download-btn transition-all duration-300">
           <div
             tabIndex={0}
             role="button"
@@ -105,7 +105,7 @@ export default function GlobalSettings() {
       {/* Floating Settings Button in Top-Right Corner of screen */}
       <button
         onClick={() => setIsSettingsOpen(true)}
-        className="fixed top-4 right-4 btn btn-ghost btn-circle z-40 text-base-content/60 hover:text-base-content hover:bg-base-content/10 backdrop-blur-sm"
+        className="fixed top-4 right-4 btn btn-ghost btn-circle z-40 text-base-content/60 hover:text-base-content hover:bg-base-content/10 backdrop-blur-sm global-settings-btn transition-all duration-300"
         title="Open settings"
       >
         <Settings className="w-5 h-5" />
