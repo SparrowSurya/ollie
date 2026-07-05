@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { OllamaService } from "@/lib/services/ollama";
+import { logger } from "@/lib/logger";
 
 // Helper to format bytes to human readable sizes
 function formatBytes(bytes: number): string {
@@ -11,13 +12,16 @@ function formatBytes(bytes: number): string {
 }
 
 export async function GET(req: Request) {
+  let model: string | null = null;
   try {
     const { searchParams } = new URL(req.url);
-    const model = searchParams.get("model");
+    model = searchParams.get("model");
 
     if (!model) {
       return NextResponse.json({ error: "Missing model parameter" }, { status: 400 });
     }
+
+    logger.info(`Fetching details for model: "${model}"`);
 
     // 1. Fetch metadata details from Ollama /api/show
     const showData = await OllamaService.showModel(model);
@@ -37,7 +41,7 @@ export async function GET(req: Request) {
         sizeInRam = formatBytes(loadedMatch.size_vram || loadedMatch.size || 0);
       }
     } catch (e) {
-      console.warn("Failed to check loaded status from /api/ps:", e);
+      logger.warning(`Failed to check loaded status from /api/ps for model "${model}": ${e instanceof Error ? e.message : String(e)}`);
     }
 
     // 3. Resolve exact file size on disk from Ollama tags registry
@@ -52,7 +56,7 @@ export async function GET(req: Request) {
         size = matched.size || 0;
       }
     } catch (e) {
-      console.warn("Failed to fetch model size from /api/tags:", e);
+      logger.warning(`Failed to fetch model size from /api/tags for model "${model}": ${e instanceof Error ? e.message : String(e)}`);
     }
     const formattedSize = size ? formatBytes(size) : "Unknown";
 
@@ -69,6 +73,8 @@ export async function GET(req: Request) {
       finalCapabilities.push("vision");
     }
 
+    logger.info(`Successfully fetched details for model: "${model}" (Size: ${formattedSize}, Loaded: ${isLoaded})`);
+
     return NextResponse.json({
       name: model,
       size: formattedSize,
@@ -81,10 +87,11 @@ export async function GET(req: Request) {
     });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
-    console.error("Error in /api/models/details:", error);
+    logger.error(`Error in /api/models/details for model "${model || "unknown"}":`, error);
     return NextResponse.json(
       { error: error.message || "Failed to fetch model details" },
       { status: 500 }
     );
   }
 }
+

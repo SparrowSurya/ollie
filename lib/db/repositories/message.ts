@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { getPrisma } from "../client";
+import { logger } from "../../logger";
 
 export interface DbMessage {
   id: string;
@@ -67,4 +68,20 @@ export async function saveMessage(
     where: { id: sessionId },
     data: { updatedAt: new Date() },
   });
+
+  const uploadedFilenames = images ? images.split(",").filter(Boolean).map(url => url.split("/").pop()) : [];
+  const generatedFilenames = generatedImages ? generatedImages.split(",").filter(Boolean).map(url => url.split("/").pop()) : [];
+  let meta = "";
+  if (uploadedFilenames.length > 0) {
+    meta += ` UploadedImagesCount: ${uploadedFilenames.length} [${uploadedFilenames.join(", ")}]`;
+  }
+  if (generatedFilenames.length > 0) {
+    meta += ` GeneratedImagesCount: ${generatedFilenames.length} [${generatedFilenames.join(", ")}]`;
+  }
+  if (modelName) {
+    meta += ` Model: "${modelName}"`;
+  }
+
+  logger.info(`Message saved [ID: ${id}, SessionID: ${sessionId}, Role: "${role}"]${meta}`);
 }
+

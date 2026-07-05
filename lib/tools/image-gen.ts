@@ -1,23 +1,28 @@
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
 import { generateImage } from "../services/image-gen";
+import { logger } from "../logger";
 
 export const imageGenTool = tool(
   async ({ prompt }, config) => {
+    const threadId = config.configurable?.thread_id ?? "default-session";
+    const imageModel = config.configurable?.image_model;
     try {
-      const threadId = config.configurable?.thread_id ?? "default-session";
-      const imageModel = config.configurable?.image_model;
+      logger.info(`Tool "generate_image" execution start (Session: "${threadId}", Model: "${imageModel || "none"}")`);
 
       if (!imageModel) {
-        return "No model found for image generation. Please configure or pull a model capable of generating images.";
+        const errorMsg = "No model found for image generation. Please configure or pull a model capable of generating images.";
+        logger.warning(`Tool "generate_image" aborted: ${errorMsg}`);
+        return errorMsg;
       }
 
       const response = await generateImage(prompt, threadId, imageModel, true);
 
+      logger.info(`Tool "generate_image" execution completed successfully (Session: "${threadId}")`);
       // Return only the raw markdown image tag
       return `![${prompt}](${response.generatedImages[0]})`;
     } catch (error) {
-      console.error("Error inside imageGenTool execution:", error);
+      logger.error(`Tool "generate_image" execution failed (Session: "${threadId}"):`, error);
       const msg = error instanceof Error ? error.message : String(error);
       return `Failed to generate image: ${msg}`;
     }
@@ -30,3 +35,4 @@ export const imageGenTool = tool(
     }),
   }
 );
+

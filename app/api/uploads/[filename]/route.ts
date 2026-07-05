@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import path from "path";
 import fs from "fs/promises";
 import readEnv from "@/lib/config";
+import { logger } from "@/lib/logger";
 
 const env = readEnv();
 
@@ -19,11 +20,13 @@ export async function GET(
   req: Request,
   { params }: { params: Promise<{ filename: string }> }
 ) {
+  let sanitizedFilename = "unknown";
   try {
     const { filename } = await params;
 
     // Sanitize filename to prevent directory traversal
-    const sanitizedFilename = path.basename(filename);
+    sanitizedFilename = path.basename(filename);
+    logger.info(`Serving request for file: "${sanitizedFilename}"`);
 
     const baseStorageDir = env.storagePath 
       ? path.resolve(env.storagePath) 
@@ -40,6 +43,7 @@ export async function GET(
         await fs.access(filePath);
       }
 
+      logger.info(`Serving file from path: "${filePath}"`);
       const fileBuffer = await fs.readFile(filePath);
       const ext = path.extname(sanitizedFilename).toLowerCase();
       const contentType = MIME_TYPES[ext] || "application/octet-stream";
@@ -51,14 +55,16 @@ export async function GET(
         },
       });
     } catch {
+      logger.warning(`File not found: "${sanitizedFilename}" in storage folders`);
       return NextResponse.json({ error: "File not found" }, { status: 404 });
     }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
-    console.error("Error serving uploaded file:", error);
+    logger.error(`Error serving file "${sanitizedFilename}":`, error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
     );
   }
 }
+

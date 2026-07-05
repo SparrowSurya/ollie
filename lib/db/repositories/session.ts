@@ -1,4 +1,5 @@
 import { getPrisma } from "../client";
+import { logger } from "../../logger";
 
 export interface DbSession {
   id: string;
@@ -27,11 +28,15 @@ export async function getSession(id: string): Promise<DbSession | null> {
 
 export async function createSession(id: string, title: string, model: string): Promise<void> {
   const prisma = getPrisma();
+  const existing = await getSession(id);
   await prisma.session.upsert({
     where: { id },
     update: {},
     create: { id, title, model },
   });
+  if (!existing) {
+    logger.info(`Session created [ID: ${id}, Title: "${title}", Model: "${model}"]`);
+  }
 }
 
 export async function deleteSession(id: string): Promise<void> {
@@ -39,6 +44,7 @@ export async function deleteSession(id: string): Promise<void> {
   await prisma.session.delete({
     where: { id },
   });
+  logger.info(`Session deleted [ID: ${id}]`);
 }
 
 export async function updateSessionTitle(id: string, title: string): Promise<void> {
@@ -47,6 +53,7 @@ export async function updateSessionTitle(id: string, title: string): Promise<voi
     where: { id },
     data: { title },
   });
+  logger.info(`Session renamed [ID: ${id}, Title: "${title}"]`);
 }
 
 export async function updateSessionModel(id: string, model: string): Promise<void> {
@@ -55,4 +62,5 @@ export async function updateSessionModel(id: string, model: string): Promise<voi
     where: { id },
     data: { model },
   });
+  logger.info(`Session model updated [ID: ${id}, Model: "${model}"]`);
 }

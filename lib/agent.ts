@@ -8,6 +8,7 @@ import fs from "fs/promises";
 import readEnv from "./config";
 import { createSession, updateSessionTitle, updateSessionModel, getMessages, saveMessage } from "./db";
 import { agentTools } from "./tools";
+import { logger } from "./logger";
 
 // Read current environment host configuration
 const env = readEnv();
@@ -84,7 +85,7 @@ async function buildMessageContent(text: string, imageUrls?: string[]): Promise<
         },
       });
     } catch (err) {
-      console.error(`Failed to read image ${imgUrl} for model content:`, err);
+      logger.error(`Failed to read image ${imgUrl} for model content:`, err);
     }
   }
 
@@ -180,34 +181,42 @@ const app = workflow.compile({ checkpointer: new MemorySaver() });
  */
 export async function bootstrapModel(threadId: string, modelName?: string): Promise<boolean> {
   const targetModel = modelName || (await getDefaultModel());
-  const response = await fetch(`${env.ollamaHost}/api/generate`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: targetModel,
-      prompt: "",
-      keep_alive: env.keepAlive,
-    }),
-  });
+  logger.info(`Bootstrapping model: "${targetModel}" (SessionID: "${threadId}")`);
+  try {
+    const response = await fetch(`${env.ollamaHost}/api/generate`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: targetModel,
+        prompt: "",
+        keep_alive: env.keepAlive,
+      }),
+    });
 
-  if (!response.ok) {
-    throw new Error(`Failed to bootstrap model: ${response.statusText}`);
-  }
-
-  // Consume the stream. Ollama holds the request open until the model weights
-  // are loaded and initial generation completes.
-  const reader = response.body?.getReader();
-  if (reader) {
-    while (true) {
-      const { done } = await reader.read();
-      if (done) break;
+    if (!response.ok) {
+      throw new Error(`Failed to bootstrap model: ${response.statusText}`);
     }
-  }
 
-  return true;
+    // Consume the stream. Ollama holds the request open until the model weights
+    // are loaded and initial generation completes.
+    const reader = response.body?.getReader();
+    if (reader) {
+      while (true) {
+        const { done } = await reader.read();
+        if (done) break;
+      }
+    }
+
+    logger.info(`Model "${targetModel}" bootstrapped successfully`);
+    return true;
+  } catch (error) {
+    logger.error(`Failed to bootstrap model "${targetModel}":`, error);
+    throw error;
+  }
 }
+
 
 /**
  * Runs the compiled LangGraph workflow for the given threadId and streams the output tokens.
@@ -231,6 +240,7 @@ export function streamAgentResponse(
     async start(controller) {
       try {
         const targetModel = modelName || (await getDefaultModel());
+        logger.info(`Starting agent response stream [SessionID: "${threadId}", Model: "${targetModel}", CustomInstructionsLength: ${customInstructions?.length ?? 0}, InputImagesCount: ${images?.length ?? 0}]`);
 
         // 1. Ensure the session exists in the database
         await createSession(threadId, "New Chat", targetModel);
@@ -242,6 +252,7 @@ export function streamAgentResponse(
         if (!state.values || !state.values.messages || state.values.messages.length === 0) {
           const dbMessages = await getMessages(threadId);
           if (dbMessages.length > 0) {
+            logger.info(`Graph memory wiped. Preloading ${dbMessages.length} messages from database history for SessionID: "${threadId}"`);
             const langchainMessages = await Promise.all(
               dbMessages.map(async (m) => {
                 if (m.role === "user") {
@@ -283,6 +294,7 @@ export function streamAgentResponse(
         let hasStartedThinking = false;
         let hasFinishedThinking = false;
 
+        logger.info(`Running agent graph event stream...`);
         for await (const event of eventStream) {
           // Listen specifically to model streaming events
           if (event.event === "on_chat_model_stream") {
@@ -353,7 +365,7 @@ export function streamAgentResponse(
             }
           }
         } catch (stateErr) {
-          console.error("Failed to inspect final state for tool outputs:", stateErr);
+          logger.error("Failed to inspect final state for tool outputs:", stateErr);
         }
 
         // 5. Save the assistant's complete generated message to the database
@@ -386,9 +398,10 @@ export function streamAgentResponse(
           await updateSessionTitle(threadId, generatedTitle);
         }
 
+        logger.info(`Agent response stream completed successfully (Generated response length: ${assistantContent.length} chars)`);
         controller.close();
       } catch (error) {
-        console.error("Error in streamAgentResponse:", error);
+        logger.error(`Error in streamAgentResponse [SessionID: "${threadId}"]:`, error);
         controller.error(error);
       }
     },

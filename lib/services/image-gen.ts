@@ -3,6 +3,7 @@ import path from "path";
 import fs from "fs/promises";
 import crypto from "crypto";
 import { saveMessage, getSession, createSession } from "@/lib/db";
+import { logger } from "@/lib/logger";
 
 const env = readEnv();
 
@@ -21,6 +22,8 @@ export async function generateImage(
   targetModel: string,
   skipDbSave = false
 ): Promise<GeneratedImageResponse> {
+  logger.info(`Starting image generation using model "${targetModel}" (Session: "${activeThreadId}")`);
+
   const ollamaRes = await fetch(`${env.ollamaHost}/v1/images/generations`, {
     method: "POST",
     headers: {
@@ -35,15 +38,20 @@ export async function generateImage(
 
   if (!ollamaRes.ok) {
     const errText = await ollamaRes.text().catch(() => "");
-    throw new Error(`Ollama image generation failed: ${errText || ollamaRes.statusText}`);
+    const errorMsg = `Ollama image generation failed: ${errText || ollamaRes.statusText}`;
+    logger.error(errorMsg);
+    throw new Error(errorMsg);
   }
 
   const ollamaData = await ollamaRes.json();
   const base64Data = ollamaData.data?.[0]?.b64_json;
   if (!base64Data) {
-    throw new Error("Ollama returned empty image payload");
+    const errorMsg = "Ollama returned empty image payload";
+    logger.error(errorMsg);
+    throw new Error(errorMsg);
   }
 
+  logger.info(`Successfully received image payload, converting and saving to local storage...`);
   const buffer = Buffer.from(base64Data, "base64");
 
   const baseStorageDir = env.storagePath 
@@ -58,8 +66,8 @@ export async function generateImage(
   const filePath = path.join(generatedDir, filename);
 
   await fs.writeFile(filePath, buffer);
-
   const imageUrlPath = `/api/uploads/${filename}`;
+  logger.info(`Generated image saved to disk as: "${filename}" (Path: "${filePath}")`);
 
   if (!skipDbSave) {
     // Ensure the session row exists in the database to avoid foreign key violations (P2003)
@@ -91,3 +99,4 @@ export async function generateImage(
     generatedImages: [imageUrlPath],
   };
 }
+

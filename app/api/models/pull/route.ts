@@ -1,17 +1,22 @@
 import { NextResponse } from "next/server";
 import { OllamaService } from "@/lib/services/ollama";
+import { logger } from "@/lib/logger";
 
 export async function POST(req: Request) {
+  let model: string | null = null;
   try {
-    const { model } = await req.json();
+    const body = await req.json();
+    model = body.model;
     if (!model) {
       return NextResponse.json({ error: "Missing model name" }, { status: 400 });
     }
 
+    logger.info(`Starting Ollama model pull stream for model: "${model}"`);
+
     // Set up abort synchronization between client request signal and Ollama fetch signal
     const abortController = new AbortController();
     req.signal.addEventListener("abort", () => {
-      console.log(`Client disconnected. Aborting Ollama pull for model: ${model}`);
+      logger.warning(`Client disconnected. Aborting Ollama pull for model: "${model}"`);
       abortController.abort();
     });
 
@@ -28,7 +33,10 @@ export async function POST(req: Request) {
         try {
           while (true) {
             const { done, value } = await reader.read();
-            if (done) break;
+            if (done) {
+              logger.info(`Ollama pull stream completed for model: "${model}"`);
+              break;
+            }
             controller.enqueue(value);
           }
           controller.close();
@@ -36,11 +44,11 @@ export async function POST(req: Request) {
         } catch (err: any) {
           // If the pull was aborted by the client, ignore normal stream closure errors
           if (abortController.signal.aborted) {
-            console.log(`Ollama pull stream successfully aborted for: ${model}`);
+            logger.info(`Ollama pull stream successfully aborted for: ${model}`);
             controller.close();
             return;
           }
-          console.error("Error piping pull stream:", err);
+          logger.error(`Error piping pull stream for model "${model}"`, err);
           controller.enqueue(encoder.encode(JSON.stringify({ error: err.message })));
           controller.close();
         }
@@ -62,10 +70,11 @@ export async function POST(req: Request) {
     if (error.name === "AbortError") {
       return NextResponse.json({ message: "Pull request aborted" });
     }
-    console.error("Error in /api/models/pull:", error);
+    logger.error(`Error in /api/models/pull for model: "${model || "unknown"}"`, error);
     return NextResponse.json(
       { error: error.message || "Failed to pull model" },
       { status: 500 }
     );
   }
 }
+

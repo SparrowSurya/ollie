@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import path from "path";
 import fs from "fs/promises";
 import readEnv from "@/lib/config";
+import { logger } from "@/lib/logger";
 
 const env = readEnv();
 
@@ -13,6 +14,8 @@ export async function POST(req: Request) {
     if (!files || files.length === 0) {
       return NextResponse.json({ error: "No files provided" }, { status: 400 });
     }
+
+    logger.info(`Received file upload request for ${files.length} file(s)`);
 
     // Max limit validation
     if (files.length > 5) {
@@ -32,13 +35,18 @@ export async function POST(req: Request) {
     const savedFileUrls: string[] = [];
 
     for (const file of files) {
+      const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+      logger.info(`Uploading file: "${file.name}" (Size: ${fileSizeMB} MB, Type: "${file.type}")`);
+
       // Validate file size (5MB limit)
       if (file.size > 5 * 1024 * 1024) {
+        logger.warning(`File upload validation failed: "${file.name}" exceeds the 5MB limit`);
         return NextResponse.json({ error: `File ${file.name} exceeds the 5MB limit` }, { status: 400 });
       }
 
       // Validate file type (image only)
       if (!file.type.startsWith("image/")) {
+        logger.warning(`File upload validation failed: "${file.name}" is not an image`);
         return NextResponse.json({ error: `File ${file.name} is not an image` }, { status: 400 });
       }
 
@@ -60,16 +68,20 @@ export async function POST(req: Request) {
       await fs.writeFile(destinationPath, buffer);
 
       // Return the file reference URL. E.g. `/api/uploads/${newFilename}`
-      savedFileUrls.push(`/api/uploads/${newFilename}`);
+      const fileUrl = `/api/uploads/${newFilename}`;
+      savedFileUrls.push(fileUrl);
+      
+      logger.info(`Saved file: "${file.name}" -> "${newFilename}" (URL: ${fileUrl})`);
     }
 
     return NextResponse.json({ urls: savedFileUrls });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
-    console.error("Error in /api/upload:", error);
+    logger.error("Error in /api/upload:", error);
     return NextResponse.json(
       { error: error.message || "Failed to upload files" },
       { status: 500 }
     );
   }
 }
+
