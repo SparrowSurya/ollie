@@ -33,6 +33,18 @@ export class OllamaService {
   }
 
   /**
+   * Fetches capabilities (e.g. "image", "completion") for a specific model.
+   */
+  static async getModelCapabilities(modelName: string, signal?: AbortSignal): Promise<string[]> {
+    try {
+      const data = await this.showModel(modelName, signal);
+      return data.capabilities || [];
+    } catch {
+      return [];
+    }
+  }
+
+  /**
    * Fetches currently loaded models from the active memory processes (/api/ps).
    */
   static async ps(signal?: AbortSignal) {
