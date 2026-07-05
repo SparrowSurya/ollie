@@ -148,7 +148,12 @@ const toolNode = new ToolNode(agentTools);
 // Define routing logic for tool execution
 const shouldContinue = (state: typeof MessagesAnnotation.State) => {
   const lastMessage = state.messages[state.messages.length - 1];
-  if (lastMessage instanceof AIMessage && lastMessage.tool_calls && lastMessage.tool_calls.length > 0) {
+  if (
+    lastMessage &&
+    "tool_calls" in lastMessage &&
+    Array.isArray(lastMessage.tool_calls) &&
+    lastMessage.tool_calls.length > 0
+  ) {
     return "tools";
   }
   return "__end__";
@@ -307,6 +312,48 @@ export function streamAgentResponse(
               assistantContent += chunk.content;
             }
           }
+        }
+
+        // Check if we need to copy tool results (e.g. image markdown) if assistantContent is empty or doesn't have the image
+        try {
+          const finalState = await app.getState({ configurable: { thread_id: threadId } });
+          const finalMessages = finalState.values?.messages || [];
+          
+          // Gather new messages generated in this turn (after the last human message)
+          const turnMessages = [];
+          for (let i = finalMessages.length - 1; i >= 0; i--) {
+            const msg = finalMessages[i];
+            if (msg._getType() === "human" || msg.role === "user") {
+              break;
+            }
+            turnMessages.unshift(msg);
+          }
+
+          // If assistantContent doesn't contain the generated image URL, but we have a tool response with it, append it
+          if (!assistantContent.includes("/api/uploads/")) {
+            let toolImageMarkdown = "";
+            for (const msg of turnMessages) {
+              const contentStr = typeof msg.content === "string" ? msg.content : "";
+              if (msg._getType() === "tool" && contentStr.includes("/api/uploads/")) {
+                toolImageMarkdown = contentStr;
+                break;
+              }
+            }
+
+            if (toolImageMarkdown) {
+              // If we were thinking but didn't close it, close it now
+              if (hasStartedThinking && !hasFinishedThinking) {
+                controller.enqueue(encoder.encode("\n</think>\n"));
+                assistantContent += "\n</think>\n";
+                hasFinishedThinking = true;
+              }
+              
+              controller.enqueue(encoder.encode(toolImageMarkdown));
+              assistantContent += toolImageMarkdown;
+            }
+          }
+        } catch (stateErr) {
+          console.error("Failed to inspect final state for tool outputs:", stateErr);
         }
 
         // 5. Save the assistant's complete generated message to the database

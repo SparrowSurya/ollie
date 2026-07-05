@@ -186,7 +186,11 @@ export default function ChatMessage({
     );
   }
 
-  const { thinkingHtml, contentHtml, isStillThinking, hasThinking } = parseResponseParts(content);
+  // Strip local markdown image tags from content so they don't double-render,
+  // since they are already displayed in the gallery below.
+  const cleanedContent = content.replace(/!\[.*?\]\(\/api\/uploads\/.*?\)/g, "").trim();
+
+  const { thinkingHtml, contentHtml, isStillThinking, hasThinking } = parseResponseParts(cleanedContent);
 
   // Assistant response is raw text flowing top-down on the left, displaying optional thinking process
   return (

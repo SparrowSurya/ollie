@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { SendHorizonal, Plus, X } from "lucide-react";
 import { useChatContext } from "@/contexts/ChatContext";
+import { useOllama } from "@/contexts/OllamaContext";
 
 export interface ChatInputProps {
   placeholder?: string;
@@ -32,7 +33,13 @@ export default function ChatInput({
   const [attachments, setAttachments] = useState<ImageAttachment[]>([]);
   const [fileError, setFileError] = useState<string | null>(null);
 
+  const { imageModels } = useOllama();
   const { activeModelSupportsVision } = useChatContext();
+
+  const isImageModel = imageModels.includes(activeModel);
+  const defaultPlaceholder = isImageModel
+    ? "Describe the image you want to generate..."
+    : "Ask Olly...";
 
   const attachmentsRef = useRef<ImageAttachment[]>([]);
   useEffect(() => {
@@ -173,7 +180,7 @@ export default function ChatInput({
         value={text}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={handleKeyDown}
-        placeholder={placeholder ?? "Ask Olly..."}
+        placeholder={placeholder ?? defaultPlaceholder}
         className="w-full bg-transparent border-none text-base text-base-content leading-relaxed font-sans placeholder-base-content/30 resize-none max-h-40 py-1 focus:outline-hidden focus:ring-0 focus:ring-offset-0 min-h-6 max-w-full"
       ></textarea>
 

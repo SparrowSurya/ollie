@@ -14,8 +14,8 @@ export const imageGenTool = tool(
 
       const response = await generateImage(prompt, threadId, imageModel, true);
 
-      // Return a structured message that the agent can read, including the markdown tag
-      return `Image generated successfully! Markdown tag to display: ![${prompt}](${response.generatedImages[0]})`;
+      // Return only the raw markdown image tag
+      return `![${prompt}](${response.generatedImages[0]})`;
     } catch (error) {
       console.error("Error inside imageGenTool execution:", error);
       const msg = error instanceof Error ? error.message : String(error);
