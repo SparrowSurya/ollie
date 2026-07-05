@@ -76,14 +76,14 @@ export async function generateImage(
     assistantMsgId,
     activeThreadId,
     "assistant",
-    `Generated image for prompt: "${prompt}"`,
+    "",
     targetModel,
     undefined,
     imageUrlPath
   );
 
   return {
-    content: `Generated image for prompt: "${prompt}"`,
+    content: "",
     generatedImages: [imageUrlPath],
   };
 }
