@@ -22,6 +22,7 @@ model Message {
   sessionId String   @map("session_id")
   role      String
   content   String
+  images    String?  // Comma-separated
   modelName String?  @map("model_name")
   timestamp DateTime @default(now())
   session   Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)

@@ -18,6 +18,7 @@ export interface DbMessage {
   role: string;
   content: string;
   modelName?: string;
+  images?: string;
   timestamp: Date;
 }
 
@@ -82,6 +83,7 @@ export async function getMessages(sessionId: string): Promise<DbMessage[]> {
     role: m.role,
     content: m.content,
     modelName: m.modelName || undefined,
+    images: m.images || undefined,
     timestamp: m.timestamp,
   }));
 }
@@ -91,19 +93,24 @@ export async function saveMessage(
   sessionId: string,
   role: string,
   content: string,
-  modelName?: string
+  modelName?: string,
+  images?: string
 ): Promise<void> {
   const prisma = getPrisma();
   
   await prisma.message.upsert({
     where: { id },
-    update: { content },
+    update: { 
+      content,
+      images: images || null
+    },
     create: {
       id,
       sessionId,
       role,
       content,
       modelName: modelName || null,
+      images: images || null,
     },
   });
 

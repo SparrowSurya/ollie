@@ -20,6 +20,7 @@ export interface DbMessageResponse {
   role: "user" | "assistant";
   content: string;
   modelName?: string;
+  images?: string;
   timestamp: string | Date;
 }
 
@@ -31,8 +32,9 @@ export interface ChatContextType {
   activeModel: string;
   defaultModel: string;
   runnableModels: string[];
+  activeModelSupportsVision: boolean;
   bootstrapChat: (model: string, useAsDefault: boolean) => Promise<void>;
-  sendMessage: (text: string) => Promise<void>;
+  sendMessage: (text: string, imageFiles?: File[]) => Promise<void>;
   setActiveModel: (model: string) => void;
   errorToast: string | null;
   setErrorToast: (msg: string | null) => void;
@@ -68,12 +70,44 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [isBootstrapping, setIsBootstrapping] = useState<boolean>(false);
   const [isModelLoaded, setIsModelLoaded] = useState<boolean>(false);
   const [errorToast, setErrorToast] = useState<string | null>(null);
+  const [activeModelSupportsVision, setActiveModelSupportsVision] = useState<boolean>(false);
 
   // History session states
   const [sessions, setSessions] = useState<DbSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string>("");
 
   const loadedSessionIdRef = useRef<string>("");
+
+  // Sync active model vision capabilities when activeModel changes
+  useEffect(() => {
+    let active = true;
+    const checkVision = async () => {
+      // Force asynchronous state update to satisfy react-hooks/set-state-in-effect rule
+      await Promise.resolve();
+
+      if (!activeModel || !isModelLoaded) {
+        if (active) setActiveModelSupportsVision(false);
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/models/details?model=${encodeURIComponent(activeModel)}`);
+        if (response.ok && active) {
+          const data = await response.json();
+          const supports = data.capabilities?.includes("vision") || false;
+          setActiveModelSupportsVision(supports);
+        }
+      } catch (e) {
+        console.error("ChatContext: Failed to check model vision capability:", e);
+        if (active) setActiveModelSupportsVision(false);
+      }
+    };
+    checkVision();
+
+    return () => {
+      active = false;
+    };
+  }, [activeModel, isModelLoaded]);
 
   const fetchSessions = useCallback(async () => {
     try {
@@ -131,6 +165,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
                 content: m.content,
                 timestamp: new Date(m.timestamp),
                 modelName: m.modelName || undefined,
+                images: m.images ? m.images.split(",") : undefined,
               }))
             );
             if (data.model) {
@@ -247,37 +282,60 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   );
 
   const sendMessage = useCallback(
-    async (text: string) => {
+    async (text: string, imageFiles?: File[]) => {
       if (isGenerating || isBootstrapping || !isModelLoaded) return;
 
       setIsGenerating(true);
       setErrorToast(null); // Clear previous errors
 
-      const userMessage: ChatUiMessage = {
-        id: crypto.randomUUID(),
-        role: "user",
-        content: text,
-        timestamp: new Date(),
-      };
-
+      let uploadedUrls: string[] = [];
       const assistantMessageId = crypto.randomUUID();
-      const assistantMessagePlaceholder: ChatUiMessage = {
-        id: assistantMessageId,
-        role: "assistant",
-        content: "",
-        timestamp: new Date(),
-        modelName: activeModel,
-      };
-
-      // Add user message and assistant placeholder message to state
-      setMessages((prev) => [...prev, userMessage, assistantMessagePlaceholder]);
-
-      // If we are on /chat, redirect to /chat/[activeSessionId] on first message submission
-      if (!urlSessionId) {
-        router.push(`/chat/${activeSessionId}`);
-      }
 
       try {
+        if (imageFiles && imageFiles.length > 0) {
+          const formData = new FormData();
+          imageFiles.forEach((file) => {
+            formData.append("files", file);
+          });
+
+          const uploadRes = await fetch("/api/upload", {
+            method: "POST",
+            body: formData,
+          });
+
+          if (!uploadRes.ok) {
+            const errData = await uploadRes.json().catch(() => ({}));
+            throw new Error(errData.error || "Failed to upload attached images");
+          }
+
+          const uploadData = await uploadRes.json();
+          uploadedUrls = uploadData.urls || [];
+        }
+
+        const userMessage: ChatUiMessage = {
+          id: crypto.randomUUID(),
+          role: "user",
+          content: text,
+          images: uploadedUrls.length > 0 ? uploadedUrls : undefined,
+          timestamp: new Date(),
+        };
+
+        const assistantMessagePlaceholder: ChatUiMessage = {
+          id: assistantMessageId,
+          role: "assistant",
+          content: "",
+          timestamp: new Date(),
+          modelName: activeModel,
+        };
+
+        // Add user message and assistant placeholder message to state
+        setMessages((prev) => [...prev, userMessage, assistantMessagePlaceholder]);
+
+        // If we are on /chat, redirect to /chat/[activeSessionId] on first message submission
+        if (!urlSessionId) {
+          router.push(`/chat/${activeSessionId}`);
+        }
+
         // Sync sessions in sidebar immediately so it lists this session
         await fetchSessions();
 
@@ -291,6 +349,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             threadId: activeSessionId,
             model: activeModel,
             customInstructions: customInstructions || "",
+            images: uploadedUrls.length > 0 ? uploadedUrls : undefined,
           }),
         });
 
@@ -378,6 +437,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         isGenerating,
         isBootstrapping,
         isModelLoaded,
+        activeModelSupportsVision,
         activeModel,
         defaultModel,
         runnableModels,

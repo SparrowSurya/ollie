@@ -56,15 +56,28 @@ export async function GET(req: Request) {
     }
     const formattedSize = size ? formatBytes(size) : "Unknown";
 
+    const capabilities = showData.capabilities || [];
+    const details = showData.details || {};
+    const families = details.families || (details.family ? [details.family] : []);
+    const hasVision = 
+      capabilities.includes("vision") || 
+      families.some((f: string) => f.toLowerCase().includes("clip") || f.toLowerCase().includes("mllama") || f.toLowerCase().includes("vision")) ||
+      !!showData.projector_info;
+    
+    const finalCapabilities = [...capabilities];
+    if (hasVision && !finalCapabilities.includes("vision")) {
+      finalCapabilities.push("vision");
+    }
+
     return NextResponse.json({
       name: model,
       size: formattedSize,
       sizeInRam,
       isLoaded,
-      format: showData.details?.format || "Unknown",
-      family: showData.details?.family || "Unknown",
-      quantization: showData.details?.quantization_level || "Unknown",
-      capabilities: showData.capabilities || [],
+      format: details.format || "Unknown",
+      family: details.family || "Unknown",
+      quantization: details.quantization_level || "Unknown",
+      capabilities: finalCapabilities,
     });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {

@@ -120,7 +120,13 @@ export async function bootstrapModel(threadId: string, modelName?: string): Prom
  * @param modelName Optional model name to invoke
  * @returns ReadableStream of encoded string tokens
  */
-export function streamAgentResponse(message: string, threadId: string, modelName?: string, customInstructions?: string): ReadableStream {
+export function streamAgentResponse(
+  message: string,
+  threadId: string,
+  modelName?: string,
+  customInstructions?: string,
+  images?: string[]
+): ReadableStream {
   const encoder = new TextEncoder();
 
   return new ReadableStream({
@@ -154,7 +160,7 @@ export function streamAgentResponse(message: string, threadId: string, modelName
 
         // 3. Save the *new* user message to the database
         const userMsgId = crypto.randomUUID();
-        await saveMessage(userMsgId, threadId, "user", message);
+        await saveMessage(userMsgId, threadId, "user", message, undefined, images?.join(","));
 
         // 4. Run the graph and listen to stream events
         const eventStream = app.streamEvents(

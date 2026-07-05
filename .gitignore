@@ -46,3 +46,6 @@ prisma/generated/
 # database
 *.db
 *.sqlite[3]
+
+# custom
+storage/

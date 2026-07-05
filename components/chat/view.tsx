@@ -9,7 +9,7 @@ import { useSettings } from "@/contexts/SettingsContext";
 
 export interface ChatViewProps {
   messages: ChatUiMessage[];
-  onSend: (text: string) => void;
+  onSend: (text: string, imageFiles?: File[]) => void;
   isGenerating?: boolean;
   isBootstrapping?: boolean;
   isModelLoaded?: boolean;

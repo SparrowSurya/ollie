@@ -7,6 +7,7 @@ export interface ChatMessageProps {
   content: string;
   pendingStatus?: "loading" | "generating";
   modelName?: string;
+  images?: string[];
 }
 
 export default function ChatMessage({
@@ -14,6 +15,7 @@ export default function ChatMessage({
   content,
   pendingStatus,
   modelName,
+  images,
 }: Readonly<ChatMessageProps>) {
   const isUser = role === "user";
 
@@ -65,7 +67,25 @@ export default function ChatMessage({
 
   if (isUser) {
     return (
-      <div className="flex justify-end w-full my-2">
+      <div className="flex flex-col items-end w-full my-2">
+        {images && images.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-2 max-w-[70%] justify-end select-none">
+            {images.map((src) => (
+              <div
+                key={src}
+                className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden border border-base-content/10 group cursor-pointer hover:opacity-90 shadow-md transition-all"
+                onClick={() => window.open(src, "_blank")}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={src}
+                  alt="Message attachment"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            ))}
+          </div>
+        )}
         <div className="glass-card text-base-content max-w-[70%] px-4 py-3 rounded-2xl rounded-tr-xs shadow-md text-base font-sans whitespace-pre-wrap">
           {content}
         </div>

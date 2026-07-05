@@ -6,4 +6,5 @@ export interface ChatUiMessage {
   content: string;
   timestamp: Date;
   modelName?: string;
+  images?: string[];
 }
