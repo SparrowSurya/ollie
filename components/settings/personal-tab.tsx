@@ -16,6 +16,9 @@ export default function PersonalTab() {
           What would you like Ollie to know about you to provide better responses?
           These guidelines are injected automatically as system prompts on every query.
         </span>
+        <span className="text-xs text-user-accent font-bold mt-1 select-none italic block">
+          Note: You only see and edit the instructions for the current chat session.
+        </span>
       </div>
       <textarea
         value={customInstructions}

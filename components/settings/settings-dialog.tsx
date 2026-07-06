@@ -5,14 +5,13 @@ import { X } from "lucide-react";
 import AppearanceTab from "./appearance-tab";
 import ModelManagerTab from "./model-manager-tab";
 import PersonalTab from "./personal-tab";
-import DatabaseTab from "./database-tab";
 
 export interface SettingsDialogProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-type TabId = "apperence" | "model" | "personal" | "database";
+type TabId = "apperence" | "model" | "personal";
 
 export default function SettingsDialog({ isOpen, onClose }: Readonly<SettingsDialogProps>) {
   const [activeTab, setActiveTab] = useState<TabId>("model");
@@ -41,7 +40,6 @@ export default function SettingsDialog({ isOpen, onClose }: Readonly<SettingsDia
     { id: "apperence", label: "Apperence" },
     { id: "model", label: "Model" },
     { id: "personal", label: "Personal" },
-    { id: "database", label: "Database" },
   ];
 
   return (
@@ -61,9 +59,7 @@ export default function SettingsDialog({ isOpen, onClose }: Readonly<SettingsDia
               ? "Appearance Settings"
               : activeTab === "model"
               ? "Model Settings"
-              : activeTab === "personal"
-              ? "Personal Settings"
-              : "Database Configuration"}
+              : "Personal Settings"}
           </h3>
           <button
             onClick={onClose}
@@ -97,7 +93,6 @@ export default function SettingsDialog({ isOpen, onClose }: Readonly<SettingsDia
             {activeTab === "apperence" && <AppearanceTab />}
             {activeTab === "model" && <ModelManagerTab />}
             {activeTab === "personal" && <PersonalTab />}
-            {activeTab === "database" && <DatabaseTab />}
           </div>
         </div>
       </div>
