@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
-import Image from "next/image";
 import { MessageRole } from "./types";
 import { parseResponseParts } from "@/lib/markdown";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
+import { SafeImage } from "./image-placeholders";
 
 export interface ChatMessageProps {
   role: MessageRole;
@@ -113,7 +113,7 @@ export default function ChatMessage({
                   className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden border border-base-content/10 group cursor-pointer hover:opacity-90 shadow-md transition-all"
                   onClick={() => setActiveImageIndex(index)}
                 >
-                  <Image
+                  <SafeImage
                     src={src}
                     alt="Message attachment"
                     fill
@@ -160,7 +160,7 @@ export default function ChatMessage({
             )}
 
             <div className="relative w-[85vw] h-[85vh] max-h-[85vh] max-w-[85vw] flex items-center justify-center z-160">
-              <Image
+              <SafeImage
                 src={displayImages[activeImageIndex]}
                 alt="Expanded view"
                 fill
@@ -239,7 +239,7 @@ export default function ChatMessage({
                 className="relative w-full max-w-xl aspect-video rounded-2xl overflow-hidden border border-base-content/10 group cursor-pointer hover:opacity-95 shadow-lg transition-all"
                 onClick={() => setActiveImageIndex(0)}
               >
-                <Image
+                <SafeImage
                   src={displayImages[0]}
                   alt="Generated output"
                   fill
@@ -255,7 +255,7 @@ export default function ChatMessage({
                     className="relative aspect-square rounded-2xl overflow-hidden border border-base-content/10 group cursor-pointer hover:opacity-95 shadow-md transition-all"
                     onClick={() => setActiveImageIndex(index)}
                   >
-                    <Image
+                    <SafeImage
                       src={src}
                       alt="Generated output"
                       fill
@@ -304,7 +304,7 @@ export default function ChatMessage({
           )}
 
           <div className="relative w-[85vw] h-[85vh] max-h-[85vh] max-w-[85vw] flex items-center justify-center z-160">
-            <Image
+            <SafeImage
               src={displayImages[activeImageIndex]}
               alt="Expanded view"
               fill
