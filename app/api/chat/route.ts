@@ -36,7 +36,7 @@ export async function POST(req: Request) {
     // Handle Image Generation Model via dedicated image service
     if (isImageModel) {
       logger.info(`Routing request to Image Generator (Model: "${targetModel}", SessionID: "${activeThreadId}")`);
-      const data = await generateImage(content, activeThreadId, targetModel);
+      const data = await generateImage([{ prompt: content }], activeThreadId, targetModel);
       return NextResponse.json(data);
     }
 

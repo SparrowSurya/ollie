@@ -34,6 +34,8 @@ export const imageGenTool = tool(
       prompts: z.array(
         z.object({
           prompt: z.string().describe("Detailed descriptive prompt for the image generation model (e.g. 'a golden retriever playing in a park, oil painting style')"),
+          width: z.number().default(1024).describe("Width of the output image in pixels (default: 1024)"),
+          height: z.number().default(1024).describe("Height of the output image in pixels (default: 1024)"),
         })
       ).describe("List of prompts to generate in parallel"),
     }),

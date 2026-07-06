@@ -7,6 +7,12 @@ import { logger } from "@/lib/logger";
 
 const env = readEnv();
 
+export interface ImagePromptInput {
+  prompt: string;
+  width?: number;
+  height?: number;
+}
+
 export interface GeneratedImageResponse {
   content: string;
   generatedImages: string[];
@@ -17,25 +23,18 @@ export interface GeneratedImageResponse {
  * write the output image to local storage, and log user/assistant messages in DB.
  */
 export async function generateImage(
-  prompts: string | { prompt: string }[],
+  prompts: ImagePromptInput[],
   activeThreadId: string,
   targetModel: string,
   skipDbSave = false
 ): Promise<GeneratedImageResponse> {
-  let promptList: string[] = [];
-  if (typeof prompts === "string") {
-    promptList = [prompts];
-  } else if (Array.isArray(prompts)) {
-    promptList = prompts.map((p) => p.prompt);
-  }
-
-  const numImages = promptList.length;
+  const numImages = prompts.length;
 
   logger.info(`Starting image generation using model "${targetModel}" (Session: "${activeThreadId}", Count: ${numImages})`);
 
   // Parallel fetch request for each image since Ollama API doesn't support multiple image generation in one call
-  const fetchPromises = promptList.map(async (prompt, i) => {
-    logger.info(`Sending image generation request ${i + 1}/${numImages} for prompt "${prompt}" in session "${activeThreadId}"...`);
+  const fetchPromises = prompts.map(async (promptObj, i) => {
+    logger.info(`Sending image generation request ${i + 1}/${numImages} for prompt "${promptObj.prompt}" (width: ${promptObj.width ?? 1024}, height: ${promptObj.height ?? 1024}) in session "${activeThreadId}"...`);
     const ollamaRes = await fetch(`${env.ollamaHost}/v1/images/generations`, {
       method: "POST",
       headers: {
@@ -43,8 +42,9 @@ export async function generateImage(
       },
       body: JSON.stringify({
         model: targetModel,
-        prompt: prompt,
-        n: 1, // each request generates 1 image
+        prompt: promptObj.prompt,
+        width: promptObj.width ?? 1024,
+        height: promptObj.height ?? 1024,
       }),
     });
 
@@ -101,7 +101,7 @@ export async function generateImage(
     // Ensure the session row exists in the database to avoid foreign key violations (P2003)
     const session = await getSession(activeThreadId);
     if (!session) {
-      const firstPrompt = promptList[0] || "";
+      const firstPrompt = prompts[0]?.prompt || "";
       const title = firstPrompt.length > 30 ? `${firstPrompt.slice(0, 30)}...` : firstPrompt;
       await createSession(activeThreadId, title, targetModel);
     }
@@ -109,7 +109,7 @@ export async function generateImage(
     const userMsgId = crypto.randomUUID();
     const assistantMsgId = crypto.randomUUID();
 
-    const userPromptText = promptList.join(" | ");
+    const userPromptText = prompts.map((p) => p.prompt).join(" | ");
 
     // Save user prompt message
     await saveMessage(userMsgId, activeThreadId, "user", userPromptText, undefined, undefined);
