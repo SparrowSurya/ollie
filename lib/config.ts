@@ -31,6 +31,11 @@ export interface EnvConfig {
    * Maximum size limit in MB for each uploaded image (default: 5)
    */
   maxImageSizeMb: number;
+
+  /**
+   * Tavily Search API Key
+   */
+  tavilyApiKey?: string;
 }
 
 /**
@@ -45,5 +50,6 @@ export default function readEnv(): EnvConfig {
     storagePath: process.env.STORAGE_PATH ?? 'storage',
     maxImageCount: Number(process.env.NEXT_PUBLIC_MAX_IMAGE_COUNT ?? process.env.MAX_IMAGE_COUNT ?? 5),
     maxImageSizeMb: Number(process.env.NEXT_PUBLIC_MAX_IMAGE_SIZE_MB ?? process.env.MAX_IMAGE_SIZE_MB ?? 5),
+    tavilyApiKey: process.env.TAVILY_API_KEY,
   };
 }
