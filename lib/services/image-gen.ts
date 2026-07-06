@@ -17,27 +17,25 @@ export interface GeneratedImageResponse {
  * write the output image to local storage, and log user/assistant messages in DB.
  */
 export async function generateImage(
-  prompt: string,
+  prompts: string | { prompt: string }[],
   activeThreadId: string,
   targetModel: string,
-  n: number | boolean = 1,
   skipDbSave = false
 ): Promise<GeneratedImageResponse> {
-  let numImages = 1;
-  let shouldSkipDb = skipDbSave;
-  
-  if (typeof n === "boolean") {
-    shouldSkipDb = n;
-    numImages = 1;
-  } else {
-    numImages = n;
+  let promptList: string[] = [];
+  if (typeof prompts === "string") {
+    promptList = [prompts];
+  } else if (Array.isArray(prompts)) {
+    promptList = prompts.map((p) => p.prompt);
   }
+
+  const numImages = promptList.length;
 
   logger.info(`Starting image generation using model "${targetModel}" (Session: "${activeThreadId}", Count: ${numImages})`);
 
   // Parallel fetch request for each image since Ollama API doesn't support multiple image generation in one call
-  const fetchPromises = Array.from({ length: numImages }).map(async (_, i) => {
-    logger.info(`Sending image generation request ${i + 1}/${numImages} for session "${activeThreadId}"...`);
+  const fetchPromises = promptList.map(async (prompt, i) => {
+    logger.info(`Sending image generation request ${i + 1}/${numImages} for prompt "${prompt}" in session "${activeThreadId}"...`);
     const ollamaRes = await fetch(`${env.ollamaHost}/v1/images/generations`, {
       method: "POST",
       headers: {
@@ -99,19 +97,22 @@ export async function generateImage(
 
   const imageUrlsString = imageUrlPaths.join(",");
 
-  if (!shouldSkipDb) {
+  if (!skipDbSave) {
     // Ensure the session row exists in the database to avoid foreign key violations (P2003)
     const session = await getSession(activeThreadId);
     if (!session) {
-      const title = prompt.length > 30 ? `${prompt.slice(0, 30)}...` : prompt;
+      const firstPrompt = promptList[0] || "";
+      const title = firstPrompt.length > 30 ? `${firstPrompt.slice(0, 30)}...` : firstPrompt;
       await createSession(activeThreadId, title, targetModel);
     }
 
     const userMsgId = crypto.randomUUID();
     const assistantMsgId = crypto.randomUUID();
 
+    const userPromptText = promptList.join(" | ");
+
     // Save user prompt message
-    await saveMessage(userMsgId, activeThreadId, "user", prompt, undefined, undefined);
+    await saveMessage(userMsgId, activeThreadId, "user", userPromptText, undefined, undefined);
     // Save assistant message with generatedImages field
     await saveMessage(
       assistantMsgId,
