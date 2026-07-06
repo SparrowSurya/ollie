@@ -8,6 +8,7 @@
     "dev": "bun db:prepare && bun --bun next dev",
     "build": "bun db:prepare && bun --bun next build",
     "start": "bun --bun next start",
+    "clean:generated": "bun scripts/clear-images.ts",
     "lint": "eslint"
   },
   "dependencies": {
