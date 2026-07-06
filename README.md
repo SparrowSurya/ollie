@@ -51,12 +51,27 @@ bun install
 ```
 
 ### 2. Set Up Environment Variables
-Create a `.env` file in the root directory (based on `.env.dev` or `.env.prod`):
+Create a `.env` file in the root directory:
 ```env
 DATABASE_URL="file:./dev.db"
+
+# Maximum count of image uploads allowed per user request (default is 5)
+NEXT_PUBLIC_MAX_IMAGE_COUNT=5
+
+# Maximum size in MB of each uploaded image (default is 5)
+NEXT_PUBLIC_MAX_IMAGE_SIZE_MB=5
+
+# Project environment type
 ENV_TYPE="dev"
+
+# Ollama host service provider
 OLLAMA_HOST="http://localhost:11434"
+
+# Maximum time a model is allowed to be loaded in GPU while not running. (see ollama docs for details)
 KEEP_ALIVE="5m"
+
+# Tavily Search API Key for agent web search capabilities
+TAVILY_API_KEY=""
 ```
 
 ### 3. Initialize the Database
