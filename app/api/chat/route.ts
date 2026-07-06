@@ -42,7 +42,7 @@ export async function POST(req: Request) {
 
     // Handle standard Text Chat Model (stream response)
     logger.info(`Routing request to Text Agent Response Stream (Model: "${targetModel}", SessionID: "${activeThreadId}")`);
-    const stream = streamAgentResponse(content, activeThreadId, targetModel, customInstructions, images, defaultImageModel);
+    const stream = streamAgentResponse(content, activeThreadId, targetModel, customInstructions, images, defaultImageModel, req.signal);
 
     return new Response(stream, {
       headers: {

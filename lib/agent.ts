@@ -232,14 +232,17 @@ export function streamAgentResponse(
   modelName?: string,
   customInstructions?: string,
   images?: string[],
-  defaultImageModel?: string
+  defaultImageModel?: string,
+  signal?: AbortSignal
 ): ReadableStream {
   const encoder = new TextEncoder();
 
   return new ReadableStream({
     async start(controller) {
+      let targetModel = "";
+      let assistantContent = "";
       try {
-        const targetModel = modelName || (await getDefaultModel());
+        targetModel = modelName || (await getDefaultModel());
         logger.info(`Starting agent response stream [SessionID: "${threadId}", Model: "${targetModel}", CustomInstructionsLength: ${customInstructions?.length ?? 0}, InputImagesCount: ${images?.length ?? 0}]`);
 
         // 1. Ensure the session exists in the database
@@ -247,29 +250,24 @@ export function streamAgentResponse(
         // Also update session model in case they changed the active model
         await updateSessionModel(threadId, targetModel);
 
-        // 2. Preload history if the graph's memory was wiped (e.g. server restart)
-        const state = await app.getState({ configurable: { thread_id: threadId } });
-        if (!state.values || !state.values.messages || state.values.messages.length === 0) {
-          const dbMessages = await getMessages(threadId);
-          if (dbMessages.length > 0) {
-            logger.info(`Graph memory wiped. Preloading ${dbMessages.length} messages from database history for SessionID: "${threadId}"`);
-            const langchainMessages = await Promise.all(
-              dbMessages.map(async (m) => {
-                if (m.role === "user") {
-                  const mImages = m.images ? m.images.split(",") : undefined;
-                  const content = await buildMessageContent(m.content, mImages);
-                  return new HumanMessage({ content, id: m.id });
-                } else {
-                  return new AIMessage({ content: m.content, id: m.id });
-                }
-              })
-            );
-            await app.updateState(
-              { configurable: { thread_id: threadId } },
-              { messages: langchainMessages }
-            );
-          }
-        }
+        // 2. Always synchronize graph state with the database messages (source of truth)
+        const dbMessages = await getMessages(threadId);
+        logger.info(`Syncing checkpointer graph state with ${dbMessages.length} messages from database history for SessionID: "${threadId}"`);
+        const langchainMessages = await Promise.all(
+          dbMessages.map(async (m) => {
+            if (m.role === "user") {
+              const mImages = m.images ? m.images.split(",") : undefined;
+              const content = await buildMessageContent(m.content, mImages);
+              return new HumanMessage({ content, id: m.id });
+            } else {
+              return new AIMessage({ content: m.content, id: m.id });
+            }
+          })
+        );
+        await app.updateState(
+          { configurable: { thread_id: threadId } },
+          { messages: langchainMessages }
+        );
 
         // 3. Save the *new* user message to the database
         const userMsgId = crypto.randomUUID();
@@ -278,7 +276,7 @@ export function streamAgentResponse(
         // 4. Run the graph and listen to stream events
         const userMessageContent = await buildMessageContent(message, images);
         const eventStream = app.streamEvents(
-          { messages: [new HumanMessage({ content: userMessageContent })] },
+          { messages: [new HumanMessage({ content: userMessageContent, id: userMsgId })] },
           {
             version: "v2",
             configurable: {
@@ -287,10 +285,10 @@ export function streamAgentResponse(
               custom_instructions: customInstructions,
               image_model: defaultImageModel,
             },
+            signal,
           }
         );
 
-        let assistantContent = "";
         let hasStartedThinking = false;
         let hasFinishedThinking = false;
 
@@ -390,9 +388,9 @@ export function streamAgentResponse(
         );
 
         // 6. Auto-generate title if this is the first message in this session
-        const dbMessages = await getMessages(threadId);
-        if (dbMessages.length === 2) {
-          const firstQuery = dbMessages[0].content;
+        const sessionMessages = await getMessages(threadId);
+        if (sessionMessages.length === 2) {
+          const firstQuery = sessionMessages[0].content;
           const generatedTitle = firstQuery.slice(0, 40) + (firstQuery.length > 40 ? "..." : "");
           await updateSessionTitle(threadId, generatedTitle);
         }
@@ -400,8 +398,27 @@ export function streamAgentResponse(
         logger.info(`Agent response stream completed successfully (Generated response length: ${assistantContent.length} chars)`);
         controller.close();
       } catch (error) {
-        logger.error(`Error in streamAgentResponse [SessionID: "${threadId}"]:`, error);
-        controller.error(error);
+        const err = error as { name?: string; message?: string };
+        if (err.name === "AbortError" || signal?.aborted) {
+          logger.info(`streamAgentResponse: Execution aborted by client signal [SessionID: "${threadId}"]`);
+          if (assistantContent) {
+            const assistantMsgId = crypto.randomUUID();
+            await saveMessage(
+              assistantMsgId,
+              threadId,
+              "assistant",
+              assistantContent,
+              targetModel,
+              undefined,
+              undefined
+            ).catch((saveErr) => {
+              logger.error("Failed to save interrupted response on server:", saveErr);
+            });
+          }
+        } else {
+          logger.error(`Error in streamAgentResponse [SessionID: "${threadId}"]:`, error);
+          controller.error(error);
+        }
       }
     },
   });

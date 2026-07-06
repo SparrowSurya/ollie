@@ -332,7 +332,6 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
       let uploadedUrls: string[] = [];
       const assistantMessageId = crypto.randomUUID();
-      let accumulatedResponse = "";
 
       const controller = new AbortController();
       abortControllerRef.current = controller;
@@ -409,7 +408,6 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         const contentType = response.headers.get("Content-Type") || "";
         if (contentType.includes("application/json")) {
           const data = await response.json();
-          accumulatedResponse = data.content || "";
           setMessages((prev) =>
             prev.map((msg) => {
               if (msg.id === assistantMessageId) {
@@ -435,7 +433,6 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             if (done) break;
 
             const chunk = decoder.decode(value, { stream: true });
-            accumulatedResponse += chunk;
             setMessages((prev) =>
               prev.map((msg) => {
                 if (msg.id === assistantMessageId) {
@@ -478,24 +475,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       } catch (error: any) {
         if (error.name === "AbortError") {
           console.log("ChatContext: Streaming aborted by user.");
-          if (accumulatedResponse) {
-            try {
-              await fetch("/api/chat/save-interrupted", {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                  threadId: activeSessionId,
-                  content: accumulatedResponse,
-                  model: activeModel,
-                }),
-              });
-              await fetchSessions();
-            } catch (saveErr) {
-              console.error("ChatContext: Failed to save interrupted response:", saveErr);
-            }
-          }
+          await fetchSessions().catch(() => {});
         } else {
           console.error("Streaming error:", error);
           const errMsg = error.message || "Failed to stream response from the server.";
