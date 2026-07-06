@@ -27,26 +27,50 @@ export async function generateImage(
   activeThreadId: string,
   targetModel: string,
   skipDbSave = false,
-  customInstructions?: string
+  customInstructions?: string,
+  inputImages?: string[]
 ): Promise<GeneratedImageResponse> {
   const numImages = prompts.length;
 
-  logger.info(`Starting image generation using model "${targetModel}" (Session: "${activeThreadId}", Count: ${numImages})`);
+  logger.info(`Starting image generation using model "${targetModel}" (Session: "${activeThreadId}", Count: ${numImages}, InputImages: ${inputImages?.length ?? 0})`);
+
+  let base64InputImage: string | undefined;
+  if (inputImages && inputImages.length > 0) {
+    try {
+      const filename = path.basename(inputImages[0]);
+      const baseStorageDir = env.storagePath 
+        ? path.resolve(env.storagePath) 
+        : path.join(process.cwd(), "storage");
+      const filePath = path.join(baseStorageDir, "upload", filename);
+      const fileBuffer = await fs.readFile(filePath);
+      base64InputImage = fileBuffer.toString("base64");
+      logger.info(`Successfully loaded and converted input image for generation: "${filename}"`);
+    } catch (err) {
+      logger.error("Failed to read input image for generation model:", err);
+    }
+  }
 
   // Parallel fetch request for each image since Ollama API doesn't support multiple image generation in one call
   const fetchPromises = prompts.map(async (promptObj, i) => {
     logger.info(`Sending image generation request ${i + 1}/${numImages} for prompt "${promptObj.prompt}" (width: ${promptObj.width ?? 1024}, height: ${promptObj.height ?? 1024}) in session "${activeThreadId}"...`);
+    const requestBody: Record<string, unknown> = {
+      model: targetModel,
+      prompt: promptObj.prompt,
+      width: promptObj.width ?? 1024,
+      height: promptObj.height ?? 1024,
+    };
+
+    if (base64InputImage) {
+      requestBody.image = `data:image/png;base64,${base64InputImage}`;
+      requestBody.input_image = base64InputImage;
+    }
+
     const ollamaRes = await fetch(`${env.ollamaHost}/v1/images/generations`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        model: targetModel,
-        prompt: promptObj.prompt,
-        width: promptObj.width ?? 1024,
-        height: promptObj.height ?? 1024,
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     if (!ollamaRes.ok) {
@@ -111,9 +135,10 @@ export async function generateImage(
     const assistantMsgId = crypto.randomUUID();
 
     const userPromptText = prompts.map((p) => p.prompt).join(" | ");
+    const inputImagesString = inputImages && inputImages.length > 0 ? inputImages.join(",") : undefined;
 
-    // Save user prompt message
-    await saveMessage(userMsgId, activeThreadId, "user", userPromptText, undefined, undefined);
+    // Save user prompt message with attached input images
+    await saveMessage(userMsgId, activeThreadId, "user", userPromptText, undefined, inputImagesString);
     // Save assistant message with generatedImages field
     await saveMessage(
       assistantMsgId,

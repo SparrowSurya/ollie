@@ -198,7 +198,7 @@ export default function ChatInput({
       <div className="flex items-center justify-between border-t border-base-content/5 pt-2 mt-0.5 select-none">
         {/* Left: Attachment & Model Selector Pill */}
         <div className="flex items-center gap-2">
-          {activeModelSupportsVision && (
+          {(activeModelSupportsVision || isImageModel) && (
             <>
               <button
                 type="button"
