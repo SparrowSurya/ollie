@@ -212,8 +212,20 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   }, [activeSessionId, urlSessionId, setActiveModel]);
 
   const startNewChat = useCallback(() => {
+    setMessages([]);
+    const newUuid = crypto.randomUUID();
+    setActiveSessionId(newUuid);
+    loadedSessionIdRef.current = newUuid;
+    setIsModelLoaded(false);
+    isStartingImageChatRef.current = false;
+
+    const targetModel = defaultModel || (runnableModels.length > 0 ? runnableModels[0] : "");
+    if (targetModel) {
+      setActiveModel(targetModel);
+    }
+
     router.push("/chat");
-  }, [router]);
+  }, [defaultModel, runnableModels, setActiveModel, router]);
 
   const startNewImageChat = useCallback(() => {
     setMessages([]);

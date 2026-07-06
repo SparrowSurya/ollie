@@ -1,10 +1,16 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useParams } from "next/navigation";
 import { ChatProvider, useChatContext } from "@/contexts/ChatContext";
+import { useOllama } from "@/contexts/OllamaContext";
 import Sidebar from "@/components/chat/sidebar";
 
 function ChatLayoutInner({ children }: { children: React.ReactNode }) {
+  const params = useParams();
+  const urlSessionId = params?.sessionId as string | undefined;
+
+  const { imageModels } = useOllama();
   const {
     sessions,
     activeSessionId,
@@ -13,7 +19,13 @@ function ChatLayoutInner({ children }: { children: React.ReactNode }) {
     renameSession,
     startNewChat,
     startNewImageChat,
+    activeModel,
+    isModelLoaded,
   } = useChatContext();
+
+  const isOnChatLanding = !urlSessionId;
+  const isImageChatActive = isOnChatLanding && isModelLoaded && imageModels.includes(activeModel);
+  const isNewChatActive = isOnChatLanding && (!isModelLoaded || !imageModels.includes(activeModel));
 
   // Sidebar expanded state — owned here so it survives route changes between /chat and /chat/[sessionId]
   // Always default to true to match server render, then sync from localStorage after mount
@@ -48,6 +60,8 @@ function ChatLayoutInner({ children }: { children: React.ReactNode }) {
         onNewImageChat={startNewImageChat}
         isExpanded={isExpanded}
         onSetExpanded={handleSetExpanded}
+        isNewChatActive={isNewChatActive}
+        isImageChatActive={isImageChatActive}
       />
 
       {/* Main chat viewport on the right */}

@@ -15,6 +15,8 @@ interface SidebarProps {
   onNewImageChat?: () => void;
   isExpanded: boolean;
   onSetExpanded: (val: boolean) => void;
+  isNewChatActive?: boolean;
+  isImageChatActive?: boolean;
 }
 
 export default function Sidebar({
@@ -27,6 +29,8 @@ export default function Sidebar({
   onNewImageChat,
   isExpanded,
   onSetExpanded,
+  isNewChatActive = false,
+  isImageChatActive = false,
 }: Readonly<SidebarProps>) {
   const { imageModels } = useOllama();
   
@@ -174,7 +178,11 @@ export default function Sidebar({
               onNewChat();
               setIsMobileOpen(false);
             }}
-            className="btn btn-sm btn-outline border-user-accent/50 text-user-accent hover:bg-user-accent hover:border-user-accent hover:text-base-100 w-full flex items-center justify-center gap-1.5 rounded-xl uppercase tracking-wider font-bold text-[11px]"
+            className={
+              isNewChatActive
+                ? "btn btn-sm bg-user-accent border-user-accent text-base-100 hover:bg-user-accent/90 hover:border-user-accent/90 w-full flex items-center justify-center gap-1.5 rounded-xl uppercase tracking-wider font-bold text-[11px]"
+                : "btn btn-sm btn-outline border-user-accent/50 text-user-accent hover:bg-user-accent hover:border-user-accent hover:text-base-100 w-full flex items-center justify-center gap-1.5 rounded-xl uppercase tracking-wider font-bold text-[11px]"
+            }
           >
             <Plus className="w-3.5 h-3.5" />
             <span>New Chat</span>
@@ -189,7 +197,11 @@ export default function Sidebar({
                 onNewImageChat?.();
                 setIsMobileOpen(false);
               }}
-              className="btn btn-sm btn-outline border-user-accent/50 text-user-accent hover:bg-user-accent hover:border-user-accent hover:text-base-100 w-full flex items-center justify-center gap-1.5 rounded-xl uppercase tracking-wider font-bold text-[11px]"
+              className={
+                isImageChatActive
+                  ? "btn btn-sm bg-user-accent border-user-accent text-base-100 hover:bg-user-accent/90 hover:border-user-accent/90 w-full flex items-center justify-center gap-1.5 rounded-xl uppercase tracking-wider font-bold text-[11px]"
+                  : "btn btn-sm btn-outline border-user-accent/50 text-user-accent hover:bg-user-accent hover:border-user-accent hover:text-base-100 w-full flex items-center justify-center gap-1.5 rounded-xl uppercase tracking-wider font-bold text-[11px]"
+              }
             >
               <Sparkles className="w-3.5 h-3.5" />
               <span>Generate Image</span>
