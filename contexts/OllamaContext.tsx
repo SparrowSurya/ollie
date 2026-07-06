@@ -49,25 +49,25 @@ export function OllamaProvider({ children }: { children: React.ReactNode }) {
         setImageModels(imgList);
 
         // Resolve default model
-        const savedDefault = localStorage.getItem("olly-default-model") || "";
+        const savedDefault = localStorage.getItem("ollie-default-model") || "";
         if (savedDefault && list.includes(savedDefault)) {
           setDefaultModelState(savedDefault);
         } else if (list.length > 0) {
           setDefaultModelState(list[0]);
-          localStorage.setItem("olly-default-model", list[0]);
+          localStorage.setItem("ollie-default-model", list[0]);
         }
 
         // Resolve default image model
-        const savedDefaultImg = localStorage.getItem("olly-default-image-model") || "";
+        const savedDefaultImg = localStorage.getItem("ollie-default-image-model") || "";
         if (savedDefaultImg && imgList.includes(savedDefaultImg)) {
           setDefaultImageModelState(savedDefaultImg);
         } else if (imgList.length > 0) {
           setDefaultImageModelState(imgList[0]);
-          localStorage.setItem("olly-default-image-model", imgList[0]);
+          localStorage.setItem("ollie-default-image-model", imgList[0]);
         }
 
         // Resolve active model
-        const savedActive = localStorage.getItem("olly-active-model") || "";
+        const savedActive = localStorage.getItem("ollie-active-model") || "";
         if (savedActive && (list.includes(savedActive) || imgList.includes(savedActive))) {
           setActiveModelState(savedActive);
         } else if (list.length > 0) {
@@ -92,17 +92,17 @@ export function OllamaProvider({ children }: { children: React.ReactNode }) {
 
   const setDefaultModel = (modelName: string) => {
     setDefaultModelState(modelName);
-    localStorage.setItem("olly-default-model", modelName);
+    localStorage.setItem("ollie-default-model", modelName);
   };
 
   const setDefaultImageModel = (modelName: string) => {
     setDefaultImageModelState(modelName);
-    localStorage.setItem("olly-default-image-model", modelName);
+    localStorage.setItem("ollie-default-image-model", modelName);
   };
 
   const setActiveModel = (modelName: string) => {
     setActiveModelState(modelName);
-    localStorage.setItem("olly-active-model", modelName);
+    localStorage.setItem("ollie-active-model", modelName);
   };
 
   const cancelPull = (modelName: string) => {
@@ -237,19 +237,19 @@ export function OllamaProvider({ children }: { children: React.ReactNode }) {
     // Reset default or active model if they were deleted
     setRunnableModels((prevModels) => {
       // Check default model
-      const savedDefault = localStorage.getItem("olly-default-model") || "";
+      const savedDefault = localStorage.getItem("ollie-default-model") || "";
       if (savedDefault === modelName || !prevModels.includes(savedDefault)) {
         const nextDefault = prevModels.length > 0 ? prevModels[0] : "";
         setDefaultModelState(nextDefault);
-        localStorage.setItem("olly-default-model", nextDefault);
+        localStorage.setItem("ollie-default-model", nextDefault);
       }
 
       // Check active model
-      const savedActive = localStorage.getItem("olly-active-model") || "";
+      const savedActive = localStorage.getItem("ollie-active-model") || "";
       if (savedActive === modelName || !prevModels.includes(savedActive)) {
         const nextActive = prevModels.length > 0 ? prevModels[0] : "";
         setActiveModelState(nextActive);
-        localStorage.setItem("olly-active-model", nextActive);
+        localStorage.setItem("ollie-active-model", nextActive);
       }
       return prevModels;
     });

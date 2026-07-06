@@ -23,8 +23,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (typeof window !== "undefined") {
       const activeTheme = document.documentElement.getAttribute("data-theme") || "mocha";
-      const savedAccent = localStorage.getItem("olly-accent") || "lavender";
-      const savedInstructions = localStorage.getItem("olly-custom-instructions") || "";
+      const savedAccent = localStorage.getItem("ollie-accent") || "lavender";
+      const savedInstructions = localStorage.getItem("ollie-custom-instructions") || "";
 
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setThemeState(activeTheme);
@@ -49,13 +49,13 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
   const setAccent = (newAccent: string) => {
     setAccentState(newAccent);
-    localStorage.setItem("olly-accent", newAccent);
+    localStorage.setItem("ollie-accent", newAccent);
     applyAccentColor(newAccent, theme);
   };
 
   const setCustomInstructions = (instructions: string) => {
     setCustomInstructionsState(instructions);
-    localStorage.setItem("olly-custom-instructions", instructions);
+    localStorage.setItem("ollie-custom-instructions", instructions);
   };
 
   return (

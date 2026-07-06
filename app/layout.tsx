@@ -17,7 +17,7 @@ const outfit = Outfit({
 });
 
 export const metadata: Metadata = {
-  title: "Olly - Local ollama chat",
+  title: "Ollie - Local ollama chat",
   description: "A self-hosted web UI for Ollama local LLMs",
 };
 

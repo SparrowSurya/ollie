@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "olly",
+      "name": "ollie",
       "dependencies": {
         "@catppuccin/daisyui": "^2.1.1",
         "@langchain/core": "^1.2.1",

@@ -42,7 +42,7 @@ export default function ChatInput({
   const isImageModel = imageModels.includes(activeModel);
   const defaultPlaceholder = isImageModel
     ? "Describe the image you want to generate..."
-    : "Ask Olly...";
+    : "Ask Ollie...";
 
   const attachmentsRef = useRef<ImageAttachment[]>([]);
   useEffect(() => {

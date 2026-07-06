@@ -13,7 +13,7 @@ export default function PersonalTab() {
           Custom Instructions:
         </span>
         <span className="text-sm text-base-content/75 leading-relaxed font-sans select-none">
-          What would you like Olly to know about you to provide better responses?
+          What would you like Ollie to know about you to provide better responses?
           These guidelines are injected automatically as system prompts on every query.
         </span>
       </div>

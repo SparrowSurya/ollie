@@ -1,6 +1,6 @@
-# Olly (Ollie)
+# Ollie
 
-Olly is a premium, modern, glassmorphic web interface for running local LLMs served via Ollama. Built using Next.js (App Router), Tailwind CSS, DaisyUI (Catppuccin themes), LangChain, LangGraph, and Prisma.
+Ollie is a premium, modern, glassmorphic web interface for running local LLMs served via Ollama. Built using Next.js (App Router), Tailwind CSS, DaisyUI (Catppuccin themes), LangChain, LangGraph, and Prisma.
 
 ---
 
@@ -18,7 +18,7 @@ Olly is a premium, modern, glassmorphic web interface for running local LLMs ser
 ## Directory Structure
 
 ```
-olly/
+ollie/
 ├── app/                      # Next.js layouts, pages, and API routing
 │   ├── api/                  # Route handlers (chat pipeline, model management, sessions, file uploads)
 │   └── chat/                 # Main chat page and session routing
@@ -83,7 +83,7 @@ The project uses a custom pre-hook script (`bun scripts/prepare-prisma.ts`) that
 
 ## Developer Guide: Adding New Agent Tools
 
-Olly features a highly modular, decoupled tool architecture. Tools are defined separately from the core agent orchestrator, making it easy to extend the agent's capabilities.
+Ollie features a highly modular, decoupled tool architecture. Tools are defined separately from the core agent orchestrator, making it easy to extend the agent's capabilities.
 
 ### How Tools are Modularized
 1. **Services (`lib/services/`)**: Handle direct network requests, file operations, database calls, or integrations.

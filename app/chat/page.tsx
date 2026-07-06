@@ -28,7 +28,7 @@ export default function ChatPage() {
           <span className="loading loading-spinner loading-lg text-user-accent"></span>
           <div className="flex flex-col gap-1">
             <h3 className="font-mono font-bold text-sm tracking-wider uppercase text-base-content/80">
-              Initializing Olly
+              Initializing Ollie
             </h3>
             <p className="text-xs text-base-content/40 italic font-sans">
               Loading preferences and local tag registries...
