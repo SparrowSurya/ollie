@@ -132,7 +132,15 @@ const callModel = async (state: typeof MessagesAnnotation.State, config?: Runnab
     return originalChat(args);
   };
 
-  const dynamicModel = chatModel.bindTools(agentTools);
+  const enabledTools = config?.configurable?.enabled_tools as string[] | undefined;
+
+  // Filter tools: default to empty array (opt-in) if not specified
+  let toolsToBind: typeof agentTools = [];
+  if (enabledTools && Array.isArray(enabledTools)) {
+    toolsToBind = agentTools.filter((t) => enabledTools.includes(t.name));
+  }
+
+  const dynamicModel = toolsToBind.length > 0 ? chatModel.bindTools(toolsToBind) : chatModel;
 
   let messages = state.messages;
   if (customInstructions && typeof customInstructions === "string" && customInstructions.trim()) {
@@ -233,6 +241,7 @@ export function streamAgentResponse(
   customInstructions?: string,
   images?: string[],
   defaultImageModel?: string,
+  enabledTools?: string[],
   signal?: AbortSignal
 ): ReadableStream {
   const encoder = new TextEncoder();
@@ -289,6 +298,7 @@ export function streamAgentResponse(
               model_name: targetModel,
               custom_instructions: activeInstructions,
               image_model: defaultImageModel,
+              enabled_tools: enabledTools,
             },
             signal,
           }

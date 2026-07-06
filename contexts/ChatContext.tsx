@@ -25,6 +25,11 @@ export interface DbMessageResponse {
   timestamp: string | Date;
 }
 
+export interface ToolInfo {
+  name: string;
+  description: string;
+}
+
 export interface ChatContextType {
   messages: ChatUiMessage[];
   isGenerating: boolean;
@@ -48,6 +53,9 @@ export interface ChatContextType {
   switchSession: (sessionId: string) => Promise<void>;
   deleteSession: (sessionId: string) => Promise<void>;
   renameSession: (sessionId: string, newTitle: string) => Promise<void>;
+  availableTools: ToolInfo[];
+  activeTools: string[];
+  toggleTool: (name: string) => void;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -80,6 +88,48 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   // History session states
   const [sessions, setSessions] = useState<DbSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string>("");
+
+  // Tool states
+  const [availableTools, setAvailableTools] = useState<ToolInfo[]>([]);
+  const [activeTools, setActiveToolsState] = useState<string[]>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("ollie-active-tools");
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch {
+          // Ignore
+        }
+      }
+    }
+    return [];
+  });
+
+  // Load available tools on mount
+  useEffect(() => {
+    const fetchTools = async () => {
+      try {
+        const res = await fetch("/api/tools");
+        if (res.ok) {
+          const data = await res.json();
+          setAvailableTools(data.tools || []);
+        }
+      } catch (e) {
+        console.error("ChatContext: Failed to fetch available tools:", e);
+      }
+    };
+    fetchTools();
+  }, []);
+
+  const toggleTool = useCallback((toolName: string) => {
+    setActiveToolsState((prev) => {
+      const updated = prev.includes(toolName)
+        ? prev.filter((name) => name !== toolName)
+        : [...prev, toolName];
+      localStorage.setItem("ollie-active-tools", JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
 
   const loadedSessionIdRef = useRef<string>("");
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -408,6 +458,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             defaultImageModel: defaultImageModel || undefined,
             customInstructions: customInstructions || "",
             images: uploadedUrls.length > 0 ? uploadedUrls : undefined,
+            enabledTools: activeTools,
           }),
           signal: controller.signal,
         });
@@ -509,7 +560,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         abortControllerRef.current = null;
       }
     },
-    [isGenerating, isBootstrapping, isModelLoaded, activeModel, activeSessionId, customInstructions, fetchSessions, urlSessionId, router, defaultImageModel]
+    [isGenerating, isBootstrapping, isModelLoaded, activeModel, activeSessionId, customInstructions, fetchSessions, urlSessionId, router, defaultImageModel, activeTools]
   );
 
   const changeActiveModel = useCallback(async (modelName: string) => {
@@ -558,6 +609,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         switchSession,
         deleteSession,
         renameSession,
+        availableTools,
+        activeTools,
+        toggleTool,
       }}
     >
       {children}

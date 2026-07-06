@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { SendHorizonal, Plus, X, Square } from "lucide-react";
+import { SendHorizonal, Plus, X, Square, Wrench } from "lucide-react";
 import { useChatContext } from "@/contexts/ChatContext";
 import { useOllama } from "@/contexts/OllamaContext";
 
@@ -37,7 +37,14 @@ export default function ChatInput({
   const [fileError, setFileError] = useState<string | null>(null);
 
   const { imageModels } = useOllama();
-  const { activeModelSupportsVision, isGenerating, stopGeneration } = useChatContext();
+  const {
+    activeModelSupportsVision,
+    isGenerating,
+    stopGeneration,
+    availableTools,
+    activeTools,
+    toggleTool,
+  } = useChatContext();
 
   const isImageModel = imageModels.includes(activeModel);
   const defaultPlaceholder = isImageModel
@@ -250,6 +257,56 @@ export default function ChatInput({
             <span className="text-[11px] font-mono font-semibold text-base-content/30 bg-base-content/5 px-2 py-0.5 rounded-full select-none">
               No active model
             </span>
+          )}
+ 
+          {availableTools && availableTools.length > 0 && (
+            <div className="dropdown dropdown-top select-none">
+              <div
+                tabIndex={0}
+                role="button"
+                className={`flex items-center gap-1.5 text-[11px] font-mono font-bold h-6 px-2.5 rounded-full cursor-pointer focus:outline-hidden transition-all ${
+                  activeTools.length > 0
+                    ? "bg-user-accent/15 text-user-accent border border-user-accent/30 hover:bg-user-accent/25"
+                    : "text-base-content/60 bg-base-content/5 hover:bg-base-content/10"
+                }`}
+              >
+                <Wrench className="w-3 h-3" />
+                <span>Tools ({activeTools.length})</span>
+                <span className="text-[8px] opacity-65">▼</span>
+              </div>
+              <div
+                tabIndex={0}
+                className="dropdown-content card card-compact p-3 shadow-xl glass-card rounded-xl w-64 text-base-content z-50 mb-1.5 border border-base-content/10"
+                style={{ backgroundColor: "color-mix(in srgb, var(--color-base-200) 95%, transparent)" }}
+              >
+                <h4 className="font-bold text-xs uppercase tracking-wider mb-2 border-b border-base-content/5 pb-1">
+                  Active Tools
+                </h4>
+                <div className="flex flex-col gap-2">
+                  {availableTools.map((t) => (
+                    <label
+                      key={t.name}
+                      className="flex items-start gap-2.5 p-2 rounded-lg hover:bg-base-content/5 cursor-pointer transition-all"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={activeTools.includes(t.name)}
+                        onChange={() => toggleTool(t.name)}
+                        className="checkbox checkbox-xs checkbox-theme-adaptive border-user-accent checked:bg-user-accent checked:border-user-accent focus:ring-0 mt-0.5"
+                      />
+                      <div className="flex flex-col gap-0.5 text-left">
+                        <span className="text-[10px] font-bold font-mono text-base-content leading-none">
+                          {t.name}
+                        </span>
+                        <span className="text-[9px] text-base-content/60 leading-normal">
+                          {t.description}
+                        </span>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
           )}
         </div>
 

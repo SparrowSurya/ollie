@@ -8,7 +8,7 @@ export async function POST(req: Request) {
   let activeThreadId = "default-session";
   let targetModel = "unknown";
   try {
-    const { content, threadId, model, defaultImageModel, customInstructions, images } = await req.json();
+    const { content, threadId, model, defaultImageModel, customInstructions, images, enabledTools } = await req.json();
 
     if (!content) {
       return NextResponse.json({ error: "Missing content" }, { status: 400 });
@@ -42,7 +42,16 @@ export async function POST(req: Request) {
 
     // Handle standard Text Chat Model (stream response)
     logger.info(`Routing request to Text Agent Response Stream (Model: "${targetModel}", SessionID: "${activeThreadId}")`);
-    const stream = streamAgentResponse(content, activeThreadId, targetModel, customInstructions, images, defaultImageModel, req.signal);
+    const stream = streamAgentResponse(
+      content,
+      activeThreadId,
+      targetModel,
+      customInstructions,
+      images,
+      defaultImageModel,
+      enabledTools,
+      req.signal
+    );
 
     return new Response(stream, {
       headers: {
