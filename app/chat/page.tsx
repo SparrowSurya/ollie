@@ -3,8 +3,10 @@
 import React from "react";
 import ChatView from "@/components/chat/view";
 import { useChatContext } from "@/contexts/ChatContext";
+import { useOllama } from "@/contexts/OllamaContext";
 
 export default function ChatPage() {
+  const { imageModels } = useOllama();
   const {
     messages,
     isGenerating,
@@ -32,12 +34,15 @@ export default function ChatPage() {
             </h3>
             <p className="text-xs text-base-content/40 italic font-sans">
               Loading preferences and local tag registries...
-            </p>
+              </p>
+            </div>
           </div>
         </div>
-      </div>
-    );
-  }
+      );
+    }
+
+  const isImageMode = imageModels.includes(activeModel);
+  const modelsToShow = isImageMode ? imageModels : runnableModels;
 
   return (
     <div className="flex-1 min-h-0 w-full">
@@ -49,7 +54,7 @@ export default function ChatPage() {
         isModelLoaded={isModelLoaded}
         activeModel={activeModel}
         defaultModel={defaultModel}
-        runnableModels={runnableModels}
+        runnableModels={modelsToShow}
         bootstrapChat={bootstrapChat}
         setActiveModel={setActiveModel}
         errorToast={errorToast}

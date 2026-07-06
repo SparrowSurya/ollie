@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { listSessions, deleteSession, updateSessionModel, updateSessionTitle, createSession, getSession } from "@/lib/db";
+import { listSessions, deleteSession, updateSessionModel, updateSessionTitle, createSession, getSession, updateSessionInstructions } from "@/lib/db";
 
 export async function GET() {
   try {
@@ -38,7 +38,7 @@ export async function DELETE(req: Request) {
 
 export async function PATCH(req: Request) {
   try {
-    const { id, model, title } = await req.json();
+    const { id, model, title, customInstructions } = await req.json();
 
     if (!id) {
       return NextResponse.json({ error: "Missing session id parameter" }, { status: 400 });
@@ -47,13 +47,16 @@ export async function PATCH(req: Request) {
     const session = await getSession(id);
     if (!session) {
       // If it doesn't exist, create it first
-      await createSession(id, title || "New Chat", model || "llama3");
+      await createSession(id, title || "New Chat", model || "llama3", customInstructions);
     } else {
       if (model !== undefined) {
         await updateSessionModel(id, model);
       }
       if (title !== undefined) {
         await updateSessionTitle(id, title);
+      }
+      if (customInstructions !== undefined) {
+        await updateSessionInstructions(id, customInstructions);
       }
     }
 

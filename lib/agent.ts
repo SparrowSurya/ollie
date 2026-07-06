@@ -6,7 +6,7 @@ import { ToolNode } from "@langchain/langgraph/prebuilt";
 import path from "path";
 import fs from "fs/promises";
 import readEnv from "./config";
-import { createSession, updateSessionTitle, updateSessionModel, getMessages, saveMessage } from "./db";
+import { createSession, getSession, updateSessionTitle, updateSessionModel, getMessages, saveMessage } from "./db";
 import { agentTools } from "./tools";
 import { logger } from "./logger";
 
@@ -246,9 +246,14 @@ export function streamAgentResponse(
         logger.info(`Starting agent response stream [SessionID: "${threadId}", Model: "${targetModel}", CustomInstructionsLength: ${customInstructions?.length ?? 0}, InputImagesCount: ${images?.length ?? 0}]`);
 
         // 1. Ensure the session exists in the database
-        await createSession(threadId, "New Chat", targetModel);
+        await createSession(threadId, "New Chat", targetModel, customInstructions);
         // Also update session model in case they changed the active model
         await updateSessionModel(threadId, targetModel);
+
+        const session = await getSession(threadId);
+        const activeInstructions = (session?.customInstructions !== undefined && session?.customInstructions !== null)
+          ? session.customInstructions
+          : customInstructions;
 
         // 2. Always synchronize graph state with the database messages (source of truth)
         const dbMessages = await getMessages(threadId);
@@ -282,7 +287,7 @@ export function streamAgentResponse(
             configurable: {
               thread_id: threadId,
               model_name: targetModel,
-              custom_instructions: customInstructions,
+              custom_instructions: activeInstructions,
               image_model: defaultImageModel,
             },
             signal,

@@ -236,8 +236,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     const targetImgModel = defaultImageModel || (imageModels.length > 0 ? imageModels[0] : "");
     if (targetImgModel) {
       setActiveModel(targetImgModel);
-      setIsModelLoaded(true);
-      isStartingImageChatRef.current = true;
+      setIsModelLoaded(false);
+      isStartingImageChatRef.current = false;
     } else {
       setIsModelLoaded(false);
       setErrorToast("No image generation models installed. Please pull an image model (like flux) in Settings.");

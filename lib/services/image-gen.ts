@@ -26,7 +26,8 @@ export async function generateImage(
   prompts: ImagePromptInput[],
   activeThreadId: string,
   targetModel: string,
-  skipDbSave = false
+  skipDbSave = false,
+  customInstructions?: string
 ): Promise<GeneratedImageResponse> {
   const numImages = prompts.length;
 
@@ -103,7 +104,7 @@ export async function generateImage(
     if (!session) {
       const firstPrompt = prompts[0]?.prompt || "";
       const title = firstPrompt.length > 30 ? `${firstPrompt.slice(0, 30)}...` : firstPrompt;
-      await createSession(activeThreadId, title, targetModel);
+      await createSession(activeThreadId, title, targetModel, customInstructions);
     }
 
     const userMsgId = crypto.randomUUID();

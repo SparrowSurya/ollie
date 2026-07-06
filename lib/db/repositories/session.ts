@@ -5,6 +5,7 @@ export interface DbSession {
   id: string;
   title: string;
   model: string;
+  customInstructions?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -26,16 +27,21 @@ export async function getSession(id: string): Promise<DbSession | null> {
   });
 }
 
-export async function createSession(id: string, title: string, model: string): Promise<void> {
+export async function createSession(
+  id: string,
+  title: string,
+  model: string,
+  customInstructions?: string
+): Promise<void> {
   const prisma = getPrisma();
   const existing = await getSession(id);
   await prisma.session.upsert({
     where: { id },
     update: {},
-    create: { id, title, model },
+    create: { id, title, model, customInstructions },
   });
   if (!existing) {
-    logger.info(`Session created [ID: ${id}, Title: "${title}", Model: "${model}"]`);
+    logger.info(`Session created [ID: ${id}, Title: "${title}", Model: "${model}", InstructionsLength: ${customInstructions?.length ?? 0}]`);
   }
 }
 
@@ -63,4 +69,13 @@ export async function updateSessionModel(id: string, model: string): Promise<voi
     data: { model },
   });
   logger.info(`Session model updated [ID: ${id}, Model: "${model}"]`);
+}
+
+export async function updateSessionInstructions(id: string, customInstructions: string): Promise<void> {
+  const prisma = getPrisma();
+  await prisma.session.update({
+    where: { id },
+    data: { customInstructions },
+  });
+  logger.info(`Session custom instructions updated [ID: ${id}]`);
 }
