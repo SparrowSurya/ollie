@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import Image from "next/image";
 import { MessageRole } from "./types";
 import { parseResponseParts } from "@/lib/markdown";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
@@ -112,11 +113,12 @@ export default function ChatMessage({
                   className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden border border-base-content/10 group cursor-pointer hover:opacity-90 shadow-md transition-all"
                   onClick={() => setActiveImageIndex(index)}
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
+                  <Image
                     src={src}
                     alt="Message attachment"
-                    className="w-full h-full object-cover"
+                    fill
+                    sizes="(max-width: 640px) 96px, 112px"
+                    className="object-cover"
                   />
                 </div>
               ))}
@@ -157,15 +159,16 @@ export default function ChatMessage({
               </button>
             )}
 
-            <div className="relative max-h-[85vh] max-w-[85vw] flex items-center justify-center z-160">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+            <div className="relative w-[85vw] h-[85vh] max-h-[85vh] max-w-[85vw] flex items-center justify-center z-160">
+              <Image
                 src={displayImages[activeImageIndex]}
                 alt="Expanded view"
-                className="max-h-[85vh] max-w-[85vw] object-contain rounded-xl shadow-2xl border border-base-content/10 transition-all"
+                fill
+                sizes="85vw"
+                className="object-contain rounded-xl shadow-2xl border border-base-content/10 transition-all"
               />
               {displayImages.length > 1 && (
-                <span className="absolute -bottom-10 text-[11px] font-mono font-bold text-base-content/75 bg-base-content/10 border border-base-content/10 backdrop-blur-md px-3 py-1 rounded-full">
+                <span className="absolute -bottom-10 left-1/2 -translate-x-1/2 text-[11px] font-mono font-bold text-base-content/75 bg-base-content/10 border border-base-content/10 backdrop-blur-md px-3 py-1 rounded-full whitespace-nowrap">
                   {activeImageIndex + 1} / {displayImages.length}
                 </span>
               )}
@@ -236,11 +239,12 @@ export default function ChatMessage({
                 className="relative w-full max-w-xl aspect-video rounded-2xl overflow-hidden border border-base-content/10 group cursor-pointer hover:opacity-95 shadow-lg transition-all"
                 onClick={() => setActiveImageIndex(0)}
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
+                <Image
                   src={displayImages[0]}
                   alt="Generated output"
-                  className="w-full h-full object-cover group-hover:scale-[1.01] transition-transform duration-300"
+                  fill
+                  sizes="(max-width: 768px) 100vw, 576px"
+                  className="object-cover group-hover:scale-[1.01] transition-transform duration-300"
                 />
               </div>
             ) : (
@@ -251,11 +255,12 @@ export default function ChatMessage({
                     className="relative aspect-square rounded-2xl overflow-hidden border border-base-content/10 group cursor-pointer hover:opacity-95 shadow-md transition-all"
                     onClick={() => setActiveImageIndex(index)}
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
+                    <Image
                       src={src}
                       alt="Generated output"
-                      className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
+                      fill
+                      sizes="(max-width: 640px) 50vw, 224px"
+                      className="object-cover group-hover:scale-[1.02] transition-transform duration-300"
                     />
                     <div className="absolute bottom-2 right-2 px-2 py-0.5 bg-black/60 backdrop-blur-xs text-[10px] text-white rounded-md opacity-0 group-hover:opacity-100 transition-opacity">
                       Image {index + 1}
@@ -298,15 +303,16 @@ export default function ChatMessage({
             </button>
           )}
 
-          <div className="relative max-h-[85vh] max-w-[85vw] flex items-center justify-center z-160">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+          <div className="relative w-[85vw] h-[85vh] max-h-[85vh] max-w-[85vw] flex items-center justify-center z-160">
+            <Image
               src={displayImages[activeImageIndex]}
               alt="Expanded view"
-              className="max-h-[85vh] max-w-[85vw] object-contain rounded-xl shadow-2xl border border-base-content/10 transition-all"
+              fill
+              sizes="85vw"
+              className="object-contain rounded-xl shadow-2xl border border-base-content/10 transition-all"
             />
             {displayImages.length > 1 && (
-              <span className="absolute -bottom-10 text-[11px] font-mono font-bold text-base-content/75 bg-base-content/10 border border-base-content/10 backdrop-blur-md px-3 py-1 rounded-full">
+              <span className="absolute -bottom-10 left-1/2 -translate-x-1/2 text-[11px] font-mono font-bold text-base-content/75 bg-base-content/10 border border-base-content/10 backdrop-blur-md px-3 py-1 rounded-full whitespace-nowrap">
                 {activeImageIndex + 1} / {displayImages.length}
               </span>
             )}
