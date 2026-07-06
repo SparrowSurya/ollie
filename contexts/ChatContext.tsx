@@ -36,6 +36,7 @@ export interface ChatContextType {
   activeModelSupportsVision: boolean;
   bootstrapChat: (model: string, useAsDefault: boolean) => Promise<void>;
   sendMessage: (text: string, imageFiles?: File[]) => Promise<void>;
+  stopGeneration: () => void;
   setActiveModel: (model: string) => void;
   errorToast: string | null;
   setErrorToast: (msg: string | null) => void;
@@ -81,6 +82,15 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [activeSessionId, setActiveSessionId] = useState<string>("");
 
   const loadedSessionIdRef = useRef<string>("");
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  const stopGeneration = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setIsGenerating(false);
+  }, []);
 
   // Sync active model vision capabilities when activeModel changes
   useEffect(() => {
@@ -322,6 +332,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
       let uploadedUrls: string[] = [];
       const assistantMessageId = crypto.randomUUID();
+      let accumulatedResponse = "";
+
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
 
       try {
         if (imageFiles && imageFiles.length > 0) {
@@ -384,6 +398,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             customInstructions: customInstructions || "",
             images: uploadedUrls.length > 0 ? uploadedUrls : undefined,
           }),
+          signal: controller.signal,
         });
 
         if (!response.ok) {
@@ -394,6 +409,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         const contentType = response.headers.get("Content-Type") || "";
         if (contentType.includes("application/json")) {
           const data = await response.json();
+          accumulatedResponse = data.content || "";
           setMessages((prev) =>
             prev.map((msg) => {
               if (msg.id === assistantMessageId) {
@@ -419,6 +435,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             if (done) break;
 
             const chunk = decoder.decode(value, { stream: true });
+            accumulatedResponse += chunk;
             setMessages((prev) =>
               prev.map((msg) => {
                 if (msg.id === assistantMessageId) {
@@ -459,22 +476,45 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (error: any) {
-        console.error("Streaming error:", error);
-        const errMsg = error.message || "Failed to stream response from the server.";
-        setErrorToast(errMsg);
-        setMessages((prev) =>
-          prev.map((msg) => {
-            if (msg.id === assistantMessageId) {
-              return {
-                ...msg,
-                content: `Error: ${errMsg}`,
-              };
+        if (error.name === "AbortError") {
+          console.log("ChatContext: Streaming aborted by user.");
+          if (accumulatedResponse) {
+            try {
+              await fetch("/api/chat/save-interrupted", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  threadId: activeSessionId,
+                  content: accumulatedResponse,
+                  model: activeModel,
+                }),
+              });
+              await fetchSessions();
+            } catch (saveErr) {
+              console.error("ChatContext: Failed to save interrupted response:", saveErr);
             }
-            return msg;
-          })
-        );
+          }
+        } else {
+          console.error("Streaming error:", error);
+          const errMsg = error.message || "Failed to stream response from the server.";
+          setErrorToast(errMsg);
+          setMessages((prev) =>
+            prev.map((msg) => {
+              if (msg.id === assistantMessageId) {
+                return {
+                  ...msg,
+                  content: `Error: ${errMsg}`,
+                };
+              }
+              return msg;
+            })
+          );
+        }
       } finally {
         setIsGenerating(false);
+        abortControllerRef.current = null;
       }
     },
     [isGenerating, isBootstrapping, isModelLoaded, activeModel, activeSessionId, customInstructions, fetchSessions, urlSessionId, router, defaultImageModel]
@@ -514,6 +554,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         runnableModels,
         bootstrapChat,
         sendMessage,
+        stopGeneration,
         setActiveModel: changeActiveModel,
         errorToast,
         setErrorToast,

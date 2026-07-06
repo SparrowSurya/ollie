@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { SendHorizonal, Plus, X } from "lucide-react";
+import { SendHorizonal, Plus, X, Square } from "lucide-react";
 import { useChatContext } from "@/contexts/ChatContext";
 import { useOllama } from "@/contexts/OllamaContext";
 
@@ -37,7 +37,7 @@ export default function ChatInput({
   const [fileError, setFileError] = useState<string | null>(null);
 
   const { imageModels } = useOllama();
-  const { activeModelSupportsVision } = useChatContext();
+  const { activeModelSupportsVision, isGenerating, stopGeneration } = useChatContext();
 
   const isImageModel = imageModels.includes(activeModel);
   const defaultPlaceholder = isImageModel
@@ -133,7 +133,7 @@ export default function ChatInput({
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      if (!disabled) {
+      if (!disabled && !isGenerating) {
         handleSubmit();
       }
     }
@@ -253,19 +253,30 @@ export default function ChatInput({
           )}
         </div>
 
-        {/* Right: Send Button */}
-        <button
-          type="button"
-          onClick={handleSubmit}
-          disabled={disabled || (text.trim() === "" && attachments.length === 0)}
-          className={`btn btn-circle btn-xs md:btn-sm shrink-0 shadow-xs border bg-transparent hover:bg-user-accent/10 transition-all ${
-            disabled || (text.trim() === "" && attachments.length === 0)
-              ? "opacity-30 cursor-not-allowed border-base-content/10 text-base-content/30"
-              : "hover:scale-105 active:scale-95 border-user-accent text-user-accent"
-          }`}
-        >
-          <SendHorizonal size={14} className="text-inherit animate-none" />
-        </button>
+        {/* Right: Send or Stop Button */}
+        {isGenerating ? (
+          <button
+            type="button"
+            onClick={stopGeneration}
+            className="btn btn-circle btn-xs md:btn-sm shrink-0 shadow-xs border border-user-accent text-user-accent hover:bg-user-accent/10 hover:scale-105 active:scale-95 transition-all flex items-center justify-center cursor-pointer"
+            title="Stop generating"
+          >
+            <Square size={10} className="text-inherit fill-user-accent" />
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={disabled || (text.trim() === "" && attachments.length === 0)}
+            className={`btn btn-circle btn-xs md:btn-sm shrink-0 shadow-xs border bg-transparent hover:bg-user-accent/10 transition-all ${
+              disabled || (text.trim() === "" && attachments.length === 0)
+                ? "opacity-30 cursor-not-allowed border-base-content/10 text-base-content/30"
+                : "hover:scale-105 active:scale-95 border-user-accent text-user-accent cursor-pointer"
+            }`}
+          >
+            <SendHorizonal size={14} className="text-inherit animate-none" />
+          </button>
+        )}
       </div>
     </div>
   );

@@ -234,7 +234,7 @@ export default function ChatView({
           <div className="w-full">
             <ChatInput
               onSend={onSend}
-              disabled={isGenerating}
+              disabled={isBootstrapping}
               activeModel={activeSelected}
               runnableModels={runnableModels}
               onModelChange={handleModelChange}
@@ -263,7 +263,7 @@ export default function ChatView({
           <div className="py-4 bg-transparent shrink-0 w-full max-w-3xl mx-auto px-4">
             <ChatInput
               onSend={onSend}
-              disabled={isGenerating || isBootstrapping}
+              disabled={isBootstrapping}
               activeModel={activeSelected}
               runnableModels={runnableModels}
               onModelChange={handleModelChange}
