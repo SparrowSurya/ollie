@@ -44,7 +44,31 @@ export default function ChatInput({
     availableTools,
     activeTools,
     toggleTool,
+    activeSessionId,
   } = useChatContext();
+
+  const [mcpCount, setMcpCount] = useState<number>(0);
+
+  useEffect(() => {
+    const fetchCount = async () => {
+      if (!activeSessionId) {
+        setMcpCount(0);
+        return;
+      }
+      try {
+        const res = await fetch(`/api/sessions/mcp?sessionId=${encodeURIComponent(activeSessionId)}`);
+        if (res.ok) {
+          const data = await res.json();
+          setMcpCount(data.servers?.length || 0);
+        }
+      } catch (e) {
+        console.error("Error fetching MCP count in ChatInput:", e);
+      }
+    };
+    fetchCount();
+    const interval = setInterval(fetchCount, 5000);
+    return () => clearInterval(interval);
+  }, [activeSessionId]);
 
   const isImageModel = imageModels.includes(activeModel);
   const defaultPlaceholder = isImageModel
@@ -301,6 +325,11 @@ export default function ChatInput({
                   ))}
                 </div>
               </div>
+            </div>
+          )}
+          {mcpCount > 0 && (
+            <div className="flex items-center gap-1 text-[11px] font-mono font-bold text-user-accent bg-user-accent/10 border border-user-accent/20 h-6 px-2.5 rounded-full select-none animate-fade-in">
+              <span>MCP: {mcpCount}</span>
             </div>
           )}
         </div>

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSession, listMcpServers, createMcpServer, deleteMcpServer } from "@/lib/db";
+import { getSession, listMcpServers, createMcpServer, deleteMcpServer, updateMcpServer } from "@/lib/db";
 import { logger } from "@/lib/logger";
 
 export async function GET(req: Request) {
@@ -72,6 +72,33 @@ export async function DELETE(req: Request) {
     logger.error("DELETE /api/sessions/mcp error:", error);
     return NextResponse.json(
       { error: error.message || "Failed to delete MCP server" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PUT(req: Request) {
+  try {
+    const { id, name, url } = await req.json();
+
+    if (!id || !name || !url) {
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
+
+    // Validate URL structure
+    try {
+      new URL(url);
+    } catch {
+      return NextResponse.json({ error: "Invalid URL format" }, { status: 400 });
+    }
+
+    const server = await updateMcpServer(id, name, url);
+    return NextResponse.json({ server });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } catch (error: any) {
+    logger.error("PUT /api/sessions/mcp error:", error);
+    return NextResponse.json(
+      { error: error.message || "Failed to update MCP server" },
       { status: 500 }
     );
   }

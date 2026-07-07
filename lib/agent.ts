@@ -157,18 +157,33 @@ function jsonSchemaToZod(schema: McpJsonSchema | undefined): z.ZodType<unknown> 
 }
 
 async function fetchMcpTools(url: string): Promise<McpToolDefinition[]> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let transport: any = null;
   try {
     const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
-    const { SSEClientTransport } = await import("@modelcontextprotocol/sdk/client/sse.js");
+    const { StreamableHTTPClientTransport } = await import("@modelcontextprotocol/sdk/client/streamableHttp.js");
 
-    const transport = new SSEClientTransport(new URL(url));
-    const client = new Client({ name: "Ollie-Client", version: "1.0.0" });
-    await client.connect(transport);
-    const response = await client.listTools();
-    await transport.close();
-    return (response.tools as McpToolDefinition[]) || [];
+    const connectPromise = async () => {
+      transport = new StreamableHTTPClientTransport(new URL(url));
+      const client = new Client({ name: "Ollie-Client", version: "1.0.0" });
+      await client.connect(transport);
+      const response = await client.listTools();
+      await transport.close();
+      return (response.tools as McpToolDefinition[]) || [];
+    };
+
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`MCP connection timeout after ${env.mcpConnectionTimeoutMs}ms`)), env.mcpConnectionTimeoutMs)
+    );
+
+    return await Promise.race([connectPromise(), timeoutPromise]);
   } catch (error) {
     logger.error(`Failed to fetch tools from MCP server at ${url}:`, error);
+    if (transport) {
+      try {
+        await transport.close();
+      } catch {}
+    }
     return [];
   }
 }
@@ -300,35 +315,54 @@ const callToolsNode = async (state: typeof MessagesAnnotation.State, config?: Ru
 
       // Look in MCP servers
       for (const server of mcpServers) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let transport: any = null;
         try {
           const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
-          const { SSEClientTransport } = await import("@modelcontextprotocol/sdk/client/sse.js");
+          const { StreamableHTTPClientTransport } = await import("@modelcontextprotocol/sdk/client/streamableHttp.js");
           
-          const transport = new SSEClientTransport(new URL(server.url));
-          const client = new Client({ name: "Ollie-Client", version: "1.0.0" });
-          await client.connect(transport);
+          const callPromise = async () => {
+            transport = new StreamableHTTPClientTransport(new URL(server.url));
+            const client = new Client({ name: "Ollie-Client", version: "1.0.0" });
+            await client.connect(transport);
 
-          const toolsData = await client.listTools();
-          const hasTool = toolsData.tools.some((t) => t.name === toolCall.name);
-          
-          if (hasTool) {
-            const mcpResult = await client.callTool({
-              name: toolCall.name,
-              arguments: toolCall.args,
-            });
-            const content = typeof mcpResult.content === "string" 
-              ? mcpResult.content 
-              : JSON.stringify(mcpResult.content);
+            const toolsData = await client.listTools();
+            const hasTool = toolsData.tools.some((t) => t.name === toolCall.name);
+            
+            if (hasTool) {
+              const mcpResult = await client.callTool({
+                name: toolCall.name,
+                arguments: toolCall.args,
+              });
+              const content = typeof mcpResult.content === "string" 
+                ? mcpResult.content 
+                : JSON.stringify(mcpResult.content);
+              await transport.close();
+              return { hasTool: true, content };
+            }
             await transport.close();
+            return { hasTool: false, content: null };
+          };
+
+          const timeoutPromise = new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error(`MCP tool execution timeout after ${env.mcpExecutionTimeoutMs}ms`)), env.mcpExecutionTimeoutMs)
+          );
+
+          const result = await Promise.race([callPromise(), timeoutPromise]);
+          if (result.hasTool) {
             return new ToolMessage({
               name: toolCall.name,
-              content,
+              content: result.content!,
               tool_call_id: toolCall.id!,
             });
           }
-          await transport.close();
         } catch (err) {
           logger.error(`Error invoking MCP server ${server.name} for tool ${toolCall.name}:`, err);
+          if (transport) {
+            try {
+              await transport.close();
+            } catch {}
+          }
         }
       }
 

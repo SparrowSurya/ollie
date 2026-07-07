@@ -44,3 +44,20 @@ export async function deleteMcpServer(id: string): Promise<void> {
   });
   logger.info(`Deleted MCP server [ID: ${id}]`);
 }
+
+export async function updateMcpServer(
+  id: string,
+  name: string,
+  url: string
+): Promise<DbMcpServer> {
+  const prisma = getPrisma();
+  const server = await prisma.mcpServer.update({
+    where: { id },
+    data: {
+      name,
+      url,
+    },
+  });
+  logger.info(`Updated MCP server [ID: ${id}, Name: "${name}"]`);
+  return server;
+}

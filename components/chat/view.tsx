@@ -6,6 +6,7 @@ import MessageView from "./message-view";
 import ChatEmpty from "./empty";
 import { ChatUiMessage } from "./types";
 import { useSettings } from "@/contexts/SettingsContext";
+import { Plus, Pencil, Trash2 } from "lucide-react";
 
 export interface ChatViewProps {
   messages: ChatUiMessage[];
@@ -16,7 +17,12 @@ export interface ChatViewProps {
   activeModel?: string;
   defaultModel?: string;
   runnableModels?: string[];
-  bootstrapChat?: (model: string, useAsDefault: boolean) => Promise<void>;
+  bootstrapChat?: (
+    model: string,
+    useAsDefault: boolean,
+    customInstructions?: string,
+    mcpServers?: { name: string; url: string }[]
+  ) => Promise<void>;
   setActiveModel?: (model: string) => void;
   errorToast?: string | null;
   setErrorToast?: (msg: string | null) => void;
@@ -44,7 +50,47 @@ export default function ChatView({
   const [selectedModel, setSelectedModel] = useState<string>("");
   const [useAsDefault, setUseAsDefault] = useState<boolean>(true);
   const [localInstructions, setLocalInstructions] = useState<string>("");
+  const [setupMcpServers, setSetupMcpServers] = useState<{ id: string; name: string; url: string }[]>([]);
+  const [isAddingMcp, setIsAddingMcp] = useState(false);
+  const [newMcpName, setNewMcpName] = useState("");
+  const [newMcpUrl, setNewMcpUrl] = useState("");
+  const [editingServerId, setEditingServerId] = useState<string | null>(null);
+  const [editMcpName, setEditMcpName] = useState("");
+  const [editMcpUrl, setEditMcpUrl] = useState("");
   const [toast, setToast] = useState<string | null>(null);
+
+  const handleAddMcp = () => {
+    const name = newMcpName.trim();
+    const url = newMcpUrl.trim();
+    if (!name || !url) return;
+    setSetupMcpServers((prev) => [
+      ...prev,
+      { id: crypto.randomUUID(), name, url }
+    ]);
+    setNewMcpName("");
+    setNewMcpUrl("");
+    setIsAddingMcp(false);
+  };
+
+  const handleDeleteMcp = (id: string) => {
+    setSetupMcpServers((prev) => prev.filter((s) => s.id !== id));
+  };
+
+  const startEditing = (srv: { id: string; name: string; url: string }) => {
+    setEditingServerId(srv.id);
+    setEditMcpName(srv.name);
+    setEditMcpUrl(srv.url);
+  };
+
+  const handleSaveEdit = () => {
+    const name = editMcpName.trim();
+    const url = editMcpUrl.trim();
+    if (!name || !url || !editingServerId) return;
+    setSetupMcpServers((prev) =>
+      prev.map((s) => (s.id === editingServerId ? { ...s, name, url } : s))
+    );
+    setEditingServerId(null);
+  };
 
   // Sync selected model state when defaultModel, activeModel, or runnableModels load
   const activeSelected = activeModel || selectedModel || defaultModel || (runnableModels.length > 0 ? runnableModels[0] : "");
@@ -119,7 +165,12 @@ export default function ChatView({
     // Update settings context dynamically first before warming up model
     setCustomInstructions(localInstructions);
 
-    bootstrapChat?.(targetModel, useAsDefault);
+    const mcpServersPayload = setupMcpServers.map((s) => ({
+      name: s.name,
+      url: s.url,
+    }));
+
+    bootstrapChat?.(targetModel, useAsDefault, localInstructions, mcpServersPayload);
   };
 
   // Centered Loader screen during pre-warming / bootstrapping
@@ -180,6 +231,145 @@ export default function ChatView({
               placeholder="Enter instructions to guide the model's behavior..."
               className="textarea textarea-bordered w-full bg-base-content/5 backdrop-blur-sm border-user-accent/30 focus:border-user-accent focus:ring-user-accent/30 focus:outline-hidden text-sm h-20 px-3 py-2 resize-none leading-relaxed font-sans"
             />
+          </div>
+
+          {/* MCP Servers Section */}
+          <div className="flex flex-col text-left gap-1.5 mt-1 border border-base-content/10 p-3 rounded-xl bg-base-content/5">
+            <div className="flex items-center justify-between select-none">
+              <span className="text-xs font-bold uppercase tracking-wide text-base-content/65">
+                MCP Servers
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsAddingMcp((prev) => !prev)}
+                className="btn btn-xs btn-ghost btn-circle text-user-accent hover:bg-user-accent/15 cursor-pointer"
+                title="Add MCP Server"
+              >
+                <Plus size={14} />
+              </button>
+            </div>
+
+            {/* Adding MCP server form inline */}
+            {isAddingMcp && (
+              <div className="flex flex-col gap-2 p-2 border border-user-accent/20 rounded-lg bg-base-100/50 mt-1 animate-fade-in">
+                <input
+                  type="text"
+                  value={newMcpName}
+                  onChange={(e) => setNewMcpName(e.target.value)}
+                  placeholder="Server Name (e.g. Memory Server)"
+                  className="input input-bordered input-xs bg-base-200 w-full text-xs font-sans rounded-md px-2 h-7"
+                />
+                <input
+                  type="url"
+                  value={newMcpUrl}
+                  onChange={(e) => setNewMcpUrl(e.target.value)}
+                  placeholder="SSE Endpoint URL (e.g. http://.../sse)"
+                  className="input input-bordered input-xs bg-base-200 w-full text-xs font-sans rounded-md px-2 h-7"
+                />
+                <div className="flex justify-end gap-1.5 mt-1 select-none">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsAddingMcp(false);
+                      setNewMcpName("");
+                      setNewMcpUrl("");
+                    }}
+                    className="btn btn-xs btn-ghost text-base-content/60 px-2 text-[10px] uppercase font-bold"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleAddMcp}
+                    disabled={!newMcpName.trim() || !newMcpUrl.trim()}
+                    className="btn btn-xs bg-user-accent hover:bg-user-accent/85 border-none text-base-100 px-2.5 text-[10px] uppercase font-bold"
+                  >
+                    Add
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Servers List with Edit / Delete */}
+            <div className="max-h-36 overflow-y-auto pr-1 flex flex-col gap-1.5 mt-1">
+              {setupMcpServers.length === 0 ? (
+                !isAddingMcp && (
+                  <span className="text-xs text-base-content/40 italic select-none py-1 block">
+                    no mcp servers added
+                  </span>
+                )
+              ) : (
+                setupMcpServers.map((srv) => {
+                  const isEditing = editingServerId === srv.id;
+                  return (
+                    <div key={srv.id} className="flex flex-col gap-1.5 p-1 px-2 hover:bg-base-content/5 rounded-lg border border-transparent hover:border-base-content/5 transition-all">
+                      {!isEditing ? (
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="text-xs text-base-content/50 select-none">•</span>
+                            <span className="text-xs font-bold text-base-content truncate font-sans" title={srv.url}>
+                              {srv.name}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0 select-none">
+                            <button
+                              type="button"
+                              onClick={() => startEditing(srv)}
+                              className="btn btn-xs btn-ghost btn-circle text-base-content/60 hover:text-user-accent hover:bg-user-accent/10"
+                              title="Edit Server"
+                            >
+                              <Pencil size={11} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteMcp(srv.id)}
+                              className="btn btn-xs btn-ghost btn-circle text-base-content/60 hover:text-error hover:bg-error/10"
+                              title="Delete Server"
+                            >
+                              <Trash2 size={11} />
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col gap-2 p-1.5 border border-user-accent/20 bg-base-100/50 rounded-lg animate-fade-in">
+                          <input
+                            type="text"
+                            value={editMcpName}
+                            onChange={(e) => setEditMcpName(e.target.value)}
+                            placeholder="Edit name..."
+                            className="input input-bordered input-xs bg-base-200 w-full text-xs font-sans rounded-md px-2 h-7"
+                          />
+                          <input
+                            type="url"
+                            value={editMcpUrl}
+                            onChange={(e) => setEditMcpUrl(e.target.value)}
+                            placeholder="Edit URL..."
+                            className="input input-bordered input-xs bg-base-200 w-full text-xs font-sans rounded-md px-2 h-7"
+                          />
+                          <div className="flex justify-end gap-1.5 mt-1 select-none">
+                            <button
+                              type="button"
+                              onClick={() => setEditingServerId(null)}
+                              className="btn btn-xs btn-ghost text-base-content/60 px-2 text-[10px] uppercase font-bold"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleSaveEdit}
+                              disabled={!editMcpName.trim() || !editMcpUrl.trim()}
+                              className="btn btn-xs bg-user-accent hover:bg-user-accent/85 border-none text-base-100 px-2.5 text-[10px] uppercase font-bold"
+                            >
+                              Done
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </div>
 
           {/* Set as Default Checkbox */}

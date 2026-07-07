@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
-import { Trash2 } from "lucide-react";
+import { Trash2, Pencil } from "lucide-react";
 import { useOllama } from "@/contexts/OllamaContext";
 import { useSettings } from "@/contexts/SettingsContext";
 
@@ -22,6 +22,9 @@ export default function SessionTab() {
   const [mcpServers, setMcpServers] = useState<McpServerInfo[]>([]);
   const [newServerName, setNewServerName] = useState("");
   const [newServerUrl, setNewServerUrl] = useState("");
+  const [editingServerId, setEditingServerId] = useState<string | null>(null);
+  const [editServerName, setEditServerName] = useState("");
+  const [editServerUrl, setEditServerUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -111,6 +114,44 @@ export default function SessionTab() {
     }
   };
 
+  const handleEditMcpServer = async (id: string) => {
+    const name = editServerName.trim();
+    const url = editServerUrl.trim();
+    if (!name || !url) return;
+
+    setLoading(true);
+    setErrorMsg(null);
+
+    try {
+      const res = await fetch("/api/sessions/mcp", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ id, name, url }),
+      });
+
+      if (res.ok) {
+        setEditingServerId(null);
+        await fetchMcpServers();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setErrorMsg(data.error || "Failed to update MCP server");
+      }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (err: any) {
+      setErrorMsg(err.message || "Failed to update MCP server");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const startEditing = (srv: McpServerInfo) => {
+    setEditingServerId(srv.id);
+    setEditServerName(srv.name);
+    setEditServerUrl(srv.url);
+  };
+
   return (
     <div className="flex flex-col gap-1 pb-4">
       {/* Active Model Select Row */}
@@ -168,29 +209,82 @@ export default function SessionTab() {
             {/* List of current servers */}
             {mcpServers.length > 0 && (
               <div className="flex flex-col gap-2 max-w-xl">
-                {mcpServers.map((srv) => (
-                  <div
-                    key={srv.id}
-                    className="flex items-center justify-between p-2 px-3 bg-base-content/5 backdrop-blur-xs rounded-xl border border-base-content/5 gap-4"
-                  >
-                    <div className="flex flex-col min-w-0 select-all">
-                      <span className="text-xs font-bold text-base-content font-sans truncate">
-                        {srv.name}
-                      </span>
-                      <span className="text-[10px] text-base-content/65 font-mono truncate">
-                        {srv.url}
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteMcpServer(srv.id)}
-                      className="btn btn-xs btn-ghost text-error hover:bg-error/15 hover:text-error rounded-full p-1 h-6 w-6 min-h-0 shrink-0"
-                      title="Delete MCP Server"
+                {mcpServers.map((srv) => {
+                  const isEditing = editingServerId === srv.id;
+                  return (
+                    <div
+                      key={srv.id}
+                      className="flex flex-col p-2 px-3 bg-base-content/5 backdrop-blur-xs rounded-xl border border-base-content/5 gap-2"
                     >
-                      <Trash2 size={12} />
-                    </button>
-                  </div>
-                ))}
+                      {!isEditing ? (
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="flex flex-col min-w-0 select-all font-sans">
+                            <span className="text-xs font-bold text-base-content truncate">
+                              {srv.name}
+                            </span>
+                            <span className="text-[10px] text-base-content/65 font-mono truncate">
+                              {srv.url}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0 select-none">
+                            <button
+                              type="button"
+                              onClick={() => startEditing(srv)}
+                              className="btn btn-xs btn-ghost text-base-content/60 hover:text-user-accent hover:bg-user-accent/10 rounded-full p-1 h-6 w-6 min-h-0 shrink-0"
+                              title="Edit MCP Server"
+                            >
+                              <Pencil size={12} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteMcpServer(srv.id)}
+                              className="btn btn-xs btn-ghost text-error hover:bg-error/15 hover:text-error rounded-full p-1 h-6 w-6 min-h-0 shrink-0"
+                              title="Delete MCP Server"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col gap-2 p-1 bg-base-100/50 rounded-lg">
+                          <input
+                            type="text"
+                            value={editServerName}
+                            onChange={(e) => setEditServerName(e.target.value)}
+                            placeholder="Edit name..."
+                            required
+                            className="input input-bordered input-xs bg-base-200 w-full text-xs font-sans rounded-md px-2 h-7"
+                          />
+                          <input
+                            type="url"
+                            value={editServerUrl}
+                            onChange={(e) => setEditServerUrl(e.target.value)}
+                            placeholder="Edit URL..."
+                            required
+                            className="input input-bordered input-xs bg-base-200 w-full text-xs font-sans rounded-md px-2 h-7"
+                          />
+                          <div className="flex justify-end gap-1.5 mt-0.5 select-none">
+                            <button
+                              type="button"
+                              onClick={() => setEditingServerId(null)}
+                              className="btn btn-xs btn-ghost text-base-content/60 px-2 text-[10px] uppercase font-bold"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleEditMcpServer(srv.id)}
+                              disabled={loading || !editServerName.trim() || !editServerUrl.trim()}
+                              className="btn btn-xs bg-user-accent hover:bg-user-accent/85 border-none text-base-100 px-2.5 text-[10px] uppercase font-bold"
+                            >
+                              Done
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
 

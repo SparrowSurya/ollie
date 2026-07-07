@@ -39,7 +39,12 @@ export interface ChatContextType {
   defaultModel: string;
   runnableModels: string[];
   activeModelSupportsVision: boolean;
-  bootstrapChat: (model: string, useAsDefault: boolean) => Promise<void>;
+  bootstrapChat: (
+    model: string,
+    useAsDefault: boolean,
+    customInstructions?: string,
+    mcpServers?: { name: string; url: string }[]
+  ) => Promise<void>;
   sendMessage: (text: string, imageFiles?: File[]) => Promise<void>;
   stopGeneration: () => void;
   setActiveModel: (model: string) => void;
@@ -342,9 +347,13 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     }
   }, [fetchSessions]);
 
-  // Handler to bootstrap and warm up the selected model
   const bootstrapChat = useCallback(
-    async (selectedModel: string, useAsDefault: boolean) => {
+    async (
+      selectedModel: string,
+      useAsDefault: boolean,
+      customInstructions?: string,
+      mcpServers?: { name: string; url: string }[]
+    ) => {
       if (isBootstrapping) return;
 
       setIsBootstrapping(true);
@@ -363,6 +372,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
           body: JSON.stringify({
             threadId: activeSessionId,
             model: selectedModel,
+            customInstructions,
+            mcpServers,
           }),
         });
 
@@ -374,6 +385,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         setIsModelLoaded(true);
         // Refresh sidebar sessions to register the newly active thread if it was just loaded
         await fetchSessions();
+        router.push(`/chat/${activeSessionId}`);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (error: any) {
         console.error("Error bootstrapping model:", error);
@@ -382,7 +394,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         setIsBootstrapping(false);
       }
     },
-    [activeSessionId, isBootstrapping, setActiveModel, setDefaultModel, fetchSessions]
+    [activeSessionId, isBootstrapping, setActiveModel, setDefaultModel, fetchSessions, router]
   );
 
   const sendMessage = useCallback(
