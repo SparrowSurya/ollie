@@ -2,10 +2,6 @@
  * Interface containing collection of environment variables.
  */
 export interface EnvConfig {
-  /**
-   * Environment type (default: 'dev')
-   */
-  envType: "prod" | "dev" | string;
 
   /**
    * Ollama Base URL (default: 'http://localhost:11434')
@@ -51,6 +47,21 @@ export interface EnvConfig {
    * MCP tool execution timeout in milliseconds (default: 8000)
    */
   mcpExecutionTimeoutMs: number;
+
+  /**
+   * List of tools enabled by default for the whole server (no UI selection, always active)
+   */
+  enabledToolsList: string[];
+
+  /**
+   * List of tools that are completely disabled (no UI selection, cannot be run)
+   */
+  disabledToolsList: string[];
+
+  /**
+   * List of tools that require manual user selection in the UI to be active
+   */
+  manualToolsList: string[];
 }
 
 /**
@@ -58,8 +69,15 @@ export interface EnvConfig {
  * @returns {EnvConfig}
  */
 export default function readEnv(): EnvConfig {
+  const parseToolList = (envVal: string | undefined): string[] => {
+    if (!envVal) return [];
+    return envVal
+      .split(",")
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+  };
+
   return {
-    envType: process.env.ENV_TYPE ?? "dev",
     ollamaHost: process.env.OLLAMA_BASE_URL ?? "http://localhost:11434",
     keepAlive: process.env.KEEP_ALIVE ?? "5m",
     storagePath: process.env.STORAGE_PATH ?? 'storage',
@@ -69,5 +87,26 @@ export default function readEnv(): EnvConfig {
     tavilyMaxResults: Number(process.env.TAVILY_MAX_RESULTS ?? 5),
     mcpConnectionTimeoutMs: Number(process.env.MCP_CONNECTION_TIMEOUT_MS ?? 5000),
     mcpExecutionTimeoutMs: Number(process.env.MCP_EXECUTION_TIMEOUT_MS ?? 8000),
+    enabledToolsList: parseToolList(process.env.ENABLED_TOOLS),
+    disabledToolsList: parseToolList(process.env.DISABLED_TOOLS),
+    manualToolsList: parseToolList(process.env.MANNUAL_TOOLS || process.env.MANUAL_TOOLS),
   };
+}
+
+/**
+ * Resolves the status of a tool based on the environment configuration rules.
+ *
+ * Rules:
+ * 1. If in disabledToolsList, status is DISABLED.
+ * 2. If in manualToolsList (and not disabled), status is MANUAL (requires UI selection).
+ * 3. Otherwise (and not disabled), status is ENABLED (enabled by default, no UI selection needed).
+ */
+export function getToolStatus(toolName: string, env: EnvConfig): "DISABLED" | "MANUAL" | "ENABLED" {
+  if (env.disabledToolsList.includes(toolName)) {
+    return "DISABLED";
+  }
+  if (env.manualToolsList.includes(toolName)) {
+    return "MANUAL";
+  }
+  return "ENABLED";
 }

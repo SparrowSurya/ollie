@@ -6,7 +6,7 @@ import { z } from "zod";
 import { tool } from "@langchain/core/tools";
 import path from "path";
 import fs from "fs/promises";
-import readEnv from "./config";
+import readEnv, { getToolStatus } from "./config";
 import { createSession, getSession, updateSessionTitle, updateSessionModel, getMessages, saveMessage, listMcpServers } from "./db";
 import { agentTools } from "./tools";
 import { logger } from "./logger";
@@ -229,6 +229,7 @@ const callModel = async (state: typeof MessagesAnnotation.State, config?: Runnab
   };
 
   const threadId = config?.configurable?.thread_id;
+  const currentEnv = readEnv();
 
   // 1. Fetch MCP servers for this session
   const mcpServers = threadId
@@ -240,6 +241,9 @@ const callModel = async (state: typeof MessagesAnnotation.State, config?: Runnab
   for (const server of mcpServers) {
     const tools = await fetchMcpTools(server.url);
     for (const t of tools) {
+      if (getToolStatus(t.name, currentEnv) === "DISABLED") {
+        continue;
+      }
       let zodSchema = jsonSchemaToZod(t.inputSchema as McpJsonSchema | undefined);
       if (!(zodSchema instanceof z.ZodObject)) {
         zodSchema = z.object({});
@@ -255,11 +259,23 @@ const callModel = async (state: typeof MessagesAnnotation.State, config?: Runnab
 
   const enabledTools = config?.configurable?.enabled_tools as string[] | undefined;
 
-  // Filter standard tools: default to empty array (opt-in) if not specified
-  let standardToolsToBind: typeof agentTools = [];
-  if (enabledTools && Array.isArray(enabledTools)) {
-    standardToolsToBind = agentTools.filter((t) => enabledTools.includes(t.name));
-  }
+  // Filter standard tools:
+  // - If DISABLED: do not bind.
+  // - If ENABLED: always bind (enabled by default).
+  // - If MANUAL: bind only if the user explicitly enabled/selected it in the UI.
+  const standardToolsToBind = agentTools.filter((t) => {
+    const status = getToolStatus(t.name, currentEnv);
+    if (status === "DISABLED") {
+      return false;
+    }
+    if (status === "ENABLED") {
+      return true;
+    }
+    if (status === "MANUAL") {
+      return enabledTools ? enabledTools.includes(t.name) : false;
+    }
+    return false;
+  });
 
   // Combine standard and MCP tools
   const toolsToBind = [...standardToolsToBind, ...mcpTools];
@@ -289,8 +305,19 @@ const callToolsNode = async (state: typeof MessagesAnnotation.State, config?: Ru
     ? await listMcpServers(threadId)
     : [];
 
+  const currentEnv = readEnv();
+
   const toolOutputs = await Promise.all(
     lastMessage.tool_calls.map(async (toolCall) => {
+      // Check if tool is disabled via environment variables
+      if (getToolStatus(toolCall.name, currentEnv) === "DISABLED") {
+        return new ToolMessage({
+          name: toolCall.name,
+          content: `Error: Tool "${toolCall.name}" is disabled by server configuration.`,
+          tool_call_id: toolCall.id!,
+        });
+      }
+
       // Try finding in standard agent tools first
       const standardTool = agentTools.find((t) => t.name === toolCall.name);
       if (standardTool) {

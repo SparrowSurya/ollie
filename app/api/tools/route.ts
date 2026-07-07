@@ -1,9 +1,12 @@
 import { agentTools } from "@/lib/tools";
 import { NextResponse } from "next/server";
+import readEnv, { getToolStatus } from "@/lib/config";
 
 export async function GET() {
   try {
-    const tools = agentTools.map((t) => ({
+    const env = readEnv();
+    const filteredTools = agentTools.filter((t) => getToolStatus(t.name, env) === "MANUAL");
+    const tools = filteredTools.map((t) => ({
       name: t.name,
       description: t.description,
     }));
