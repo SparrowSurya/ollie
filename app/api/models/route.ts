@@ -33,11 +33,11 @@ export async function GET() {
       })
     );
 
-    return NextResponse.json({ models, imageModels });
+    return NextResponse.json({ models, imageModels, allInstalledModels: rawPulledModels });
   } catch (error) {
     console.error("Error in /api/models:", error);
     return NextResponse.json(
-      { models: [], imageModels: [], error: "Ollama host is unreachable. Please ensure the Ollama service is running." },
+      { models: [], imageModels: [], allInstalledModels: [], error: "Ollama host is unreachable. Please ensure the Ollama service is running." },
       { status: 503 }
     );
   }

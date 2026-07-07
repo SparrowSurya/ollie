@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { X } from "lucide-react";
 import AppearanceTab from "./appearance-tab";
 import ModelManagerTab from "./model-manager-tab";
+import SessionTab from "./session-tab";
 import PersonalTab from "./personal-tab";
 
 export interface SettingsDialogProps {
@@ -11,7 +12,7 @@ export interface SettingsDialogProps {
   onClose: () => void;
 }
 
-type TabId = "apperence" | "model" | "personal";
+type TabId = "apperence" | "model" | "session" | "personal";
 
 export default function SettingsDialog({ isOpen, onClose }: Readonly<SettingsDialogProps>) {
   const [activeTab, setActiveTab] = useState<TabId>("model");
@@ -39,6 +40,7 @@ export default function SettingsDialog({ isOpen, onClose }: Readonly<SettingsDia
   const tabs: { id: TabId; label: string }[] = [
     { id: "apperence", label: "Apperence" },
     { id: "model", label: "Model" },
+    { id: "session", label: "Session" },
     { id: "personal", label: "Personal" },
   ];
 
@@ -59,6 +61,8 @@ export default function SettingsDialog({ isOpen, onClose }: Readonly<SettingsDia
               ? "Appearance Settings"
               : activeTab === "model"
               ? "Model Settings"
+              : activeTab === "session"
+              ? "Session Settings"
               : "Personal Settings"}
           </h3>
           <button
@@ -92,6 +96,7 @@ export default function SettingsDialog({ isOpen, onClose }: Readonly<SettingsDia
           <div className="flex-1 h-full overflow-y-auto pr-1 select-text">
             {activeTab === "apperence" && <AppearanceTab />}
             {activeTab === "model" && <ModelManagerTab />}
+            {activeTab === "session" && <SessionTab />}
             {activeTab === "personal" && <PersonalTab />}
           </div>
         </div>

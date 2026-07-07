@@ -1,31 +1,74 @@
 "use client";
 
-import React from "react";
-import { useSettings } from "@/contexts/SettingsContext";
+import React, { useState } from "react";
 
 export default function PersonalTab() {
-  const { customInstructions, setCustomInstructions } = useSettings();
+  const [nickname, setNicknameState] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("ollie-nickname") || "";
+    }
+    return "";
+  });
+
+  const [aboutMe, setAboutMeState] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("ollie-about-me") || "";
+    }
+    return "";
+  });
+
+  const handleNicknameChange = (val: string) => {
+    setNicknameState(val);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("ollie-nickname", val);
+    }
+  };
+
+  const handleAboutMeChange = (val: string) => {
+    setAboutMeState(val);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("ollie-about-me", val);
+    }
+  };
 
   return (
-    <div className="flex flex-col gap-3.5 py-2 text-left">
-      <div className="flex flex-col gap-1">
-        <span className="text-base font-bold uppercase tracking-wider text-base-content">
-          Custom Instructions:
-        </span>
-        <span className="text-sm text-base-content/75 leading-relaxed font-sans select-none">
-          What would you like Ollie to know about you to provide better responses?
-          These guidelines are injected automatically as system prompts on every query.
-        </span>
-        <span className="text-xs text-user-accent font-bold mt-1 select-none italic block">
-          Note: You only see and edit the instructions for the current chat session.
-        </span>
+    <div className="flex flex-col gap-5 py-2 text-left">
+      {/* Nickname Section */}
+      <div className="flex flex-col gap-2 pb-4 border-b border-base-content/5">
+        <div className="flex flex-col gap-0.5 select-none">
+          <span className="text-base font-bold uppercase tracking-wider text-base-content">
+            Nickname:
+          </span>
+          <span className="text-sm text-base-content/75 leading-relaxed font-sans">
+            The model will refer to you with this name.
+          </span>
+        </div>
+        <input
+          type="text"
+          value={nickname}
+          onChange={(e) => handleNicknameChange(e.target.value)}
+          placeholder="e.g. Alex"
+          className="input input-bordered bg-base-content/5 backdrop-blur-sm w-full max-w-md text-sm font-sans focus:outline-hidden rounded-xl px-3 py-2 border-base-content/15 select-text h-9 leading-none"
+        />
       </div>
-      <textarea
-        value={customInstructions}
-        onChange={(e) => setCustomInstructions(e.target.value)}
-        placeholder="e.g. You are a senior software engineer. Reply with concise TypeScript code blocks, utilizing ESNext features. Keep prose explanation to a absolute minimum."
-        className="textarea textarea-bordered bg-base-content/5 backdrop-blur-sm w-full h-55 text-sm font-sans focus:outline-hidden rounded-xl p-3 border-base-content/15 resize-none leading-relaxed mt-1 select-text"
-      />
+
+      {/* About Me Section */}
+      <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-0.5 select-none">
+          <span className="text-base font-bold uppercase tracking-wider text-base-content">
+            About me:
+          </span>
+          <span className="text-sm text-base-content/75 leading-relaxed font-sans">
+            Details about yourself that you want to provide to the model.
+          </span>
+        </div>
+        <textarea
+          value={aboutMe}
+          onChange={(e) => handleAboutMeChange(e.target.value)}
+          placeholder="e.g. I am a web developer specializing in Next.js and TypeScript. I prefer modular architectures and clean style conventions."
+          className="textarea textarea-bordered bg-base-content/5 backdrop-blur-sm w-full h-44 text-sm font-sans focus:outline-hidden rounded-xl p-3 border-base-content/15 resize-none leading-relaxed mt-1 select-text"
+        />
+      </div>
     </div>
   );
 }

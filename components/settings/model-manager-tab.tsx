@@ -8,13 +8,12 @@ export default function ModelManagerTab() {
   const {
     runnableModels,
     imageModels,
+    allInstalledModels,
     defaultModel,
     defaultImageModel,
-    activeModel,
     pullingStatus,
     setDefaultModel,
     setDefaultImageModel,
-    setActiveModel,
     pullModel,
     cancelPull,
     deleteModel,
@@ -97,7 +96,7 @@ export default function ModelManagerTab() {
 
   const allModelNames = Array.from(
     new Set([
-      ...runnableModels,
+      ...allInstalledModels,
       ...Object.keys(pullingStatus),
     ])
   );
@@ -174,43 +173,8 @@ export default function ModelManagerTab() {
         </div>
       </div>
 
-      {/* Active Model Select Row */}
-      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4 py-3">
-        <div className="flex flex-col text-left gap-0.5 max-w-xs">
-          <span className="text-base font-bold uppercase tracking-wider text-base-content">
-            Active Model:
-          </span>
-          <span className="text-sm text-base-content/80 leading-relaxed font-sans select-none">
-            The model currently processing responses in this chat thread.
-          </span>
-        </div>
-        <div className="flex flex-col items-end gap-1.5 w-full sm:w-auto">
-          <select
-            value={activeModel}
-            onChange={(e) => setActiveModel(e.target.value)}
-            disabled={runnableModels.length === 0}
-            className="select select-bordered select-sm w-full sm:w-48 bg-base-200 font-sans cursor-pointer focus:outline-hidden text-base h-9 px-3"
-          >
-            {runnableModels.length === 0 ? (
-              <option value="">No models installed</option>
-            ) : (
-              runnableModels.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))
-            )}
-          </select>
-          {runnableModels.length === 0 && (
-            <span className="text-[10px] text-error/85 font-mono italic text-right leading-tight max-w-48 select-none">
-              No models are installed.
-            </span>
-          )}
-        </div>
-      </div>
-
       {/* Installed Models Section */}
-      <div className="flex flex-col gap-1 py-3 border-t border-base-content/5 mt-2 select-none">
+      <div className="flex flex-col gap-1 py-3 select-none">
         <span className="text-base font-bold uppercase tracking-wider text-base-content">
           Installed Models:
         </span>
@@ -225,7 +189,7 @@ export default function ModelManagerTab() {
             </span>
           ) : (
             allModelNames.map((name) => {
-              const isInstalled = runnableModels.includes(name);
+              const isInstalled = allInstalledModels.includes(name);
               const pullState = pullingStatus[name];
 
               return (

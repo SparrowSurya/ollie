@@ -11,6 +11,7 @@ export interface PullState {
 interface OllamaContextType {
   runnableModels: string[];
   imageModels: string[];
+  allInstalledModels: string[];
   defaultModel: string;
   defaultImageModel: string;
   activeModel: string;
@@ -30,6 +31,7 @@ const OllamaContext = createContext<OllamaContextType | undefined>(undefined);
 export function OllamaProvider({ children }: { children: React.ReactNode }) {
   const [runnableModels, setRunnableModels] = useState<string[]>([]);
   const [imageModels, setImageModels] = useState<string[]>([]);
+  const [allInstalledModels, setAllInstalledModels] = useState<string[]>([]);
   const [defaultModel, setDefaultModelState] = useState<string>("");
   const [defaultImageModel, setDefaultImageModelState] = useState<string>("");
   const [activeModel, setActiveModelState] = useState<string>("");
@@ -45,8 +47,10 @@ export function OllamaProvider({ children }: { children: React.ReactNode }) {
         const data = await response.json();
         const list = data.models || [];
         const imgList = data.imageModels || [];
+        const allList = data.allInstalledModels || [];
         setRunnableModels(list);
         setImageModels(imgList);
+        setAllInstalledModels(allList);
 
         // Resolve default model
         const savedDefault = localStorage.getItem("ollie-default-model") || "";
@@ -260,6 +264,7 @@ export function OllamaProvider({ children }: { children: React.ReactNode }) {
       value={{
         runnableModels,
         imageModels,
+        allInstalledModels,
         defaultModel,
         defaultImageModel,
         activeModel,

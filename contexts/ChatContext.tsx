@@ -446,6 +446,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         // Sync sessions in sidebar immediately so it lists this session
         await fetchSessions();
 
+        const storedNickname = typeof window !== "undefined" ? localStorage.getItem("ollie-nickname") || "" : "";
+        const storedAboutMe = typeof window !== "undefined" ? localStorage.getItem("ollie-about-me") || "" : "";
+
         const response = await fetch("/api/chat", {
           method: "POST",
           headers: {
@@ -459,6 +462,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             customInstructions: customInstructions || "",
             images: uploadedUrls.length > 0 ? uploadedUrls : undefined,
             enabledTools: activeTools,
+            nickname: storedNickname || undefined,
+            aboutMe: storedAboutMe || undefined,
           }),
           signal: controller.signal,
         });

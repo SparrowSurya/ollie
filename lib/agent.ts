@@ -242,7 +242,9 @@ export function streamAgentResponse(
   images?: string[],
   defaultImageModel?: string,
   enabledTools?: string[],
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  nickname?: string,
+  aboutMe?: string
 ): ReadableStream {
   const encoder = new TextEncoder();
 
@@ -260,9 +262,20 @@ export function streamAgentResponse(
         await updateSessionModel(threadId, targetModel);
 
         const session = await getSession(threadId);
-        const activeInstructions = (session?.customInstructions !== undefined && session?.customInstructions !== null)
+        let activeInstructions = (session?.customInstructions !== undefined && session?.customInstructions !== null)
           ? session.customInstructions
           : customInstructions;
+
+        if (nickname || aboutMe) {
+          let personalContext = "";
+          if (nickname) {
+            personalContext += `User's nickname: ${nickname}. You must refer to the user by this name when appropriate.\n`;
+          }
+          if (aboutMe) {
+            personalContext += `About the user: ${aboutMe}\n`;
+          }
+          activeInstructions = personalContext + (activeInstructions || "");
+        }
 
         // 2. Always synchronize graph state with the database messages (source of truth)
         const dbMessages = await getMessages(threadId);
