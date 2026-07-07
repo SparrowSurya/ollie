@@ -276,7 +276,7 @@ export default function ChatInput({
               </div>
               <div
                 tabIndex={0}
-                className="dropdown-content card card-compact p-3 shadow-xl glass-card rounded-xl w-64 text-base-content z-50 mb-1.5 border border-base-content/10"
+                className="dropdown-content card card-compact p-3 shadow-xl glass-card rounded-xl w-44 text-base-content z-50 mb-1.5 border border-base-content/10"
                 style={{ backgroundColor: "color-mix(in srgb, var(--color-base-200) 95%, transparent)" }}
               >
                 <h4 className="font-bold text-xs uppercase tracking-wider mb-2 border-b border-base-content/5 pb-1">
@@ -286,22 +286,17 @@ export default function ChatInput({
                   {availableTools.map((t) => (
                     <label
                       key={t.name}
-                      className="flex items-start gap-2.5 p-2 rounded-lg hover:bg-base-content/5 cursor-pointer transition-all"
+                      className="flex items-center gap-2.5 p-1.5 rounded-lg hover:bg-base-content/5 cursor-pointer transition-all"
                     >
                       <input
                         type="checkbox"
                         checked={activeTools.includes(t.name)}
                         onChange={() => toggleTool(t.name)}
-                        className="checkbox checkbox-xs checkbox-theme-adaptive border-user-accent checked:bg-user-accent checked:border-user-accent focus:ring-0 mt-0.5"
+                        className="checkbox checkbox-xs checkbox-theme-adaptive border-user-accent checked:bg-user-accent checked:border-user-accent focus:ring-0"
                       />
-                      <div className="flex flex-col gap-0.5 text-left">
-                        <span className="text-[10px] font-bold font-mono text-base-content leading-none">
-                          {t.name}
-                        </span>
-                        <span className="text-[9px] text-base-content/60 leading-normal">
-                          {t.description}
-                        </span>
-                      </div>
+                      <span className="text-[10px] font-bold font-mono text-base-content leading-none">
+                        {t.name}
+                      </span>
                     </label>
                   ))}
                 </div>
