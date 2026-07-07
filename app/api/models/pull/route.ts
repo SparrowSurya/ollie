@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { OllamaService } from "@/lib/services/ollama";
 import { logger } from "@/lib/logger";
+import { activePullControllers } from "@/lib/services/ollama-pull-state";
 
 export async function POST(req: Request) {
   let model: string | null = null;
@@ -15,14 +16,24 @@ export async function POST(req: Request) {
 
     // Set up abort synchronization between client request signal and Ollama fetch signal
     const abortController = new AbortController();
+    activePullControllers.set(model, abortController);
+
     req.signal.addEventListener("abort", () => {
       logger.warning(`Client disconnected. Aborting Ollama pull for model: "${model}"`);
       abortController.abort();
+      if (model) activePullControllers.delete(model);
     });
 
-    const ollamaRes = await OllamaService.pullStream(model, abortController.signal);
+    let ollamaRes;
+    try {
+      ollamaRes = await OllamaService.pullStream(model, abortController.signal);
+    } catch (err) {
+      if (model) activePullControllers.delete(model);
+      throw err;
+    }
 
     if (!ollamaRes.body) {
+      if (model) activePullControllers.delete(model);
       throw new Error("No response body from Ollama");
     }
 
@@ -51,10 +62,13 @@ export async function POST(req: Request) {
           logger.error(`Error piping pull stream for model "${model}"`, err);
           controller.enqueue(encoder.encode(JSON.stringify({ error: err.message })));
           controller.close();
+        } finally {
+          if (model) activePullControllers.delete(model);
         }
       },
       cancel() {
         abortController.abort();
+        if (model) activePullControllers.delete(model);
       }
     });
 

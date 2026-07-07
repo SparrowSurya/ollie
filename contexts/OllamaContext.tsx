@@ -115,6 +115,16 @@ export function OllamaProvider({ children }: { children: React.ReactNode }) {
       controller.abort();
       delete abortControllersRef.current[modelName];
     }
+    // Explicitly notify the backend to cancel and close connection to Ollama daemon
+    fetch("/api/models/pull/cancel", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ model: modelName }),
+    }).catch((err) => {
+      console.error("Failed to notify server of pull cancellation:", err);
+    });
   };
 
   const pullModel = async (modelName: string) => {
