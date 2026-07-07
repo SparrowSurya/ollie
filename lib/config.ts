@@ -3,9 +3,9 @@
  */
 export interface EnvConfig {
   /**
-   * Environment type (default: 'dev')
+   * Environment type (default: 'development')
    */
-  envType: "prod" | "dev" | string;
+  nodeEnv: "production" | "development" | string;
 
   /**
    * Ollama Base URL (default: 'http://localhost:11434')
@@ -82,7 +82,7 @@ export default function readEnv(): EnvConfig {
   };
 
   return {
-    envType: process.env.ENV_TYPE ?? "dev",
+    nodeEnv: process.env.NODE_ENV ?? "development",
     ollamaHost: process.env.OLLAMA_BASE_URL ?? "http://localhost:11434",
     keepAlive: process.env.KEEP_ALIVE ?? "5m",
     storagePath: process.env.STORAGE_PATH ?? 'storage',

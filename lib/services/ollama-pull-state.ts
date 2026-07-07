@@ -9,6 +9,6 @@ const globalForOllama = globalThis as unknown as {
 export const activePullControllers =
   globalForOllama.activePullControllers ?? new Map<string, AbortController>();
 
-if (env.envType !== "prod" && env.envType !== "production") {
+if (env.nodeEnv !== "production") {
   globalForOllama.activePullControllers = activePullControllers;
 }
