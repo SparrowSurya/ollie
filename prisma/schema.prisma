@@ -7,13 +7,14 @@ generator client {
 }
 
 model Session {
-  id                 String    @id
+  id                 String      @id
   title              String
   model              String
-  customInstructions String?   @map("custom_instructions")
-  createdAt          DateTime  @default(now()) @map("created_at")
-  updatedAt          DateTime  @updatedAt @map("updated_at")
+  customInstructions String?     @map("custom_instructions")
+  createdAt          DateTime    @default(now()) @map("created_at")
+  updatedAt          DateTime    @updatedAt @map("updated_at")
   messages           Message[]
+  mcpServers         McpServer[]
 
   @@map("sessions")
 }
@@ -24,10 +25,21 @@ model Message {
   role            String
   content         String
   images          String?  // Comma-separated
-  generatedImages String?  @map("generated_images") // Comma-separated generated images
+  generatedImages String?  @map("generated_images") // Comma-separated
   modelName       String?  @map("model_name")
   timestamp       DateTime @default(now())
   session         Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   @@map("messages")
+}
+
+model McpServer {
+  id        String   @id @default(uuid())
+  sessionId String   @map("session_id")
+  name      String
+  url       String
+  createdAt DateTime @default(now()) @map("created_at")
+  session   Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@map("mcp_servers")
 }

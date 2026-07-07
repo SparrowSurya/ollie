@@ -1,12 +1,13 @@
 import { ChatOllama } from "@langchain/ollama";
 import { MessagesAnnotation, StateGraph, MemorySaver } from "@langchain/langgraph";
-import { HumanMessage, SystemMessage, AIMessage } from "@langchain/core/messages";
+import { HumanMessage, SystemMessage, AIMessage, ToolMessage } from "@langchain/core/messages";
 import { RunnableConfig } from "@langchain/core/runnables";
-import { ToolNode } from "@langchain/langgraph/prebuilt";
+import { z } from "zod";
+import { tool } from "@langchain/core/tools";
 import path from "path";
 import fs from "fs/promises";
 import readEnv from "./config";
-import { createSession, getSession, updateSessionTitle, updateSessionModel, getMessages, saveMessage } from "./db";
+import { createSession, getSession, updateSessionTitle, updateSessionModel, getMessages, saveMessage, listMcpServers } from "./db";
 import { agentTools } from "./tools";
 import { logger } from "./logger";
 
@@ -92,6 +93,86 @@ async function buildMessageContent(text: string, imageUrls?: string[]): Promise<
   return contentParts;
 }
 
+// MCP Integration Helpers
+interface McpJsonSchema {
+  type?: string;
+  description?: string;
+  nullable?: boolean;
+  items?: McpJsonSchema;
+  properties?: Record<string, McpJsonSchema>;
+  required?: string[];
+}
+
+interface McpToolDefinition {
+  name: string;
+  description?: string;
+  inputSchema?: Record<string, unknown>;
+}
+
+function jsonSchemaToZod(schema: McpJsonSchema | undefined): z.ZodType<unknown> {
+  if (!schema) return z.any();
+
+  switch (schema.type) {
+    case "string": {
+      let zString = z.string();
+      if (schema.description) zString = zString.describe(schema.description);
+      return schema.nullable ? zString.nullable() : zString;
+    }
+    case "number":
+    case "integer": {
+      let zNumber = z.number();
+      if (schema.description) zNumber = zNumber.describe(schema.description);
+      return schema.nullable ? zNumber.nullable() : zNumber;
+    }
+    case "boolean": {
+      let zBoolean = z.boolean();
+      if (schema.description) zBoolean = zBoolean.describe(schema.description);
+      return schema.nullable ? zBoolean.nullable() : zBoolean;
+    }
+    case "array": {
+      let zArray = z.array(jsonSchemaToZod(schema.items));
+      if (schema.description) zArray = zArray.describe(schema.description);
+      return schema.nullable ? zArray.nullable() : zArray;
+    }
+    case "object": {
+      const shape: Record<string, z.ZodType<unknown>> = {};
+      if (schema.properties) {
+        for (const [key, value] of Object.entries(schema.properties)) {
+          let fieldSchema = jsonSchemaToZod(value);
+          const isRequired = Array.isArray(schema.required) && schema.required.includes(key);
+          if (!isRequired) {
+            fieldSchema = fieldSchema.optional();
+          }
+          shape[key] = fieldSchema;
+        }
+      }
+      let zObject = z.object(shape);
+      if (schema.description) zObject = zObject.describe(schema.description);
+      return schema.nullable ? zObject.nullable() : zObject;
+    }
+    default: {
+      return z.any();
+    }
+  }
+}
+
+async function fetchMcpTools(url: string): Promise<McpToolDefinition[]> {
+  try {
+    const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
+    const { SSEClientTransport } = await import("@modelcontextprotocol/sdk/client/sse.js");
+
+    const transport = new SSEClientTransport(new URL(url));
+    const client = new Client({ name: "Ollie-Client", version: "1.0.0" });
+    await client.connect(transport);
+    const response = await client.listTools();
+    await transport.close();
+    return (response.tools as McpToolDefinition[]) || [];
+  } catch (error) {
+    logger.error(`Failed to fetch tools from MCP server at ${url}:`, error);
+    return [];
+  }
+}
+
 // Node function: calls the model dynamically with the configured model name
 const callModel = async (state: typeof MessagesAnnotation.State, config?: RunnableConfig) => {
   const modelName = config?.configurable?.model_name || (await getDefaultModel());
@@ -132,13 +213,41 @@ const callModel = async (state: typeof MessagesAnnotation.State, config?: Runnab
     return originalChat(args);
   };
 
+  const threadId = config?.configurable?.thread_id;
+
+  // 1. Fetch MCP servers for this session
+  const mcpServers = threadId
+    ? await listMcpServers(threadId)
+    : [];
+
+  // 2. Fetch and convert MCP tools
+  const mcpTools: ReturnType<typeof tool>[] = [];
+  for (const server of mcpServers) {
+    const tools = await fetchMcpTools(server.url);
+    for (const t of tools) {
+      let zodSchema = jsonSchemaToZod(t.inputSchema as McpJsonSchema | undefined);
+      if (!(zodSchema instanceof z.ZodObject)) {
+        zodSchema = z.object({});
+      }
+      const langchainTool = tool(async () => {}, {
+        name: t.name,
+        description: t.description || "",
+        schema: zodSchema,
+      });
+      mcpTools.push(langchainTool);
+    }
+  }
+
   const enabledTools = config?.configurable?.enabled_tools as string[] | undefined;
 
-  // Filter tools: default to empty array (opt-in) if not specified
-  let toolsToBind: typeof agentTools = [];
+  // Filter standard tools: default to empty array (opt-in) if not specified
+  let standardToolsToBind: typeof agentTools = [];
   if (enabledTools && Array.isArray(enabledTools)) {
-    toolsToBind = agentTools.filter((t) => enabledTools.includes(t.name));
+    standardToolsToBind = agentTools.filter((t) => enabledTools.includes(t.name));
   }
+
+  // Combine standard and MCP tools
+  const toolsToBind = [...standardToolsToBind, ...mcpTools];
 
   const dynamicModel = toolsToBind.length > 0 ? chatModel.bindTools(toolsToBind) : chatModel;
 
@@ -151,8 +260,91 @@ const callModel = async (state: typeof MessagesAnnotation.State, config?: Runnab
   return { messages: [response] };
 };
 
-// Define tool execution node
-const toolNode = new ToolNode(agentTools);
+// Define custom tool execution node
+const callToolsNode = async (state: typeof MessagesAnnotation.State, config?: RunnableConfig) => {
+  const lastMessage = state.messages[state.messages.length - 1];
+  if (!lastMessage || !("tool_calls" in lastMessage) || !Array.isArray(lastMessage.tool_calls)) {
+    return { messages: [] };
+  }
+
+  const threadId = config?.configurable?.thread_id;
+  
+  // Fetch MCP servers for this session
+  const mcpServers = threadId
+    ? await listMcpServers(threadId)
+    : [];
+
+  const toolOutputs = await Promise.all(
+    lastMessage.tool_calls.map(async (toolCall) => {
+      // Try finding in standard agent tools first
+      const standardTool = agentTools.find((t) => t.name === toolCall.name);
+      if (standardTool) {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const result = await (standardTool as any).invoke(toolCall.args);
+          const content = typeof result === "string" ? result : JSON.stringify(result);
+          return new ToolMessage({
+            name: toolCall.name,
+            content,
+            tool_call_id: toolCall.id!,
+          });
+        } catch (err) {
+          const errMsg = err instanceof Error ? err.message : String(err);
+          return new ToolMessage({
+            name: toolCall.name,
+            content: `Error executing tool: ${errMsg}`,
+            tool_call_id: toolCall.id!,
+          });
+        }
+      }
+
+      // Look in MCP servers
+      for (const server of mcpServers) {
+        try {
+          const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
+          const { SSEClientTransport } = await import("@modelcontextprotocol/sdk/client/sse.js");
+          
+          const transport = new SSEClientTransport(new URL(server.url));
+          const client = new Client({ name: "Ollie-Client", version: "1.0.0" });
+          await client.connect(transport);
+
+          const toolsData = await client.listTools();
+          const hasTool = toolsData.tools.some((t) => t.name === toolCall.name);
+          
+          if (hasTool) {
+            const mcpResult = await client.callTool({
+              name: toolCall.name,
+              arguments: toolCall.args,
+            });
+            const content = typeof mcpResult.content === "string" 
+              ? mcpResult.content 
+              : JSON.stringify(mcpResult.content);
+            await transport.close();
+            return new ToolMessage({
+              name: toolCall.name,
+              content,
+              tool_call_id: toolCall.id!,
+            });
+          }
+          await transport.close();
+        } catch (err) {
+          logger.error(`Error invoking MCP server ${server.name} for tool ${toolCall.name}:`, err);
+        }
+      }
+
+      // If tool not found anywhere
+      return new ToolMessage({
+        name: toolCall.name,
+        content: `Error: Tool "${toolCall.name}" not found or failed to execute.`,
+        tool_call_id: toolCall.id!,
+      });
+    })
+  );
+
+  return { messages: toolOutputs };
+};
+
+const toolNode = callToolsNode;
 
 // Define routing logic for tool execution
 const shouldContinue = (state: typeof MessagesAnnotation.State) => {
