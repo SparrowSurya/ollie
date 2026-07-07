@@ -38,6 +38,11 @@ export interface EnvConfig {
   tavilyApiKey?: string;
 
   /**
+   * Maximum search results for web search (default: 5)
+   */
+  tavilyMaxResults: number;
+
+  /**
    * MCP connection timeout in milliseconds (default: 5000)
    */
   mcpConnectionTimeoutMs: number;
@@ -61,6 +66,7 @@ export default function readEnv(): EnvConfig {
     maxImageCount: Number(process.env.NEXT_PUBLIC_MAX_IMAGE_COUNT ?? process.env.MAX_IMAGE_COUNT ?? 5),
     maxImageSizeMb: Number(process.env.NEXT_PUBLIC_MAX_IMAGE_SIZE_MB ?? process.env.MAX_IMAGE_SIZE_MB ?? 5),
     tavilyApiKey: process.env.TAVILY_API_KEY,
+    tavilyMaxResults: Number(process.env.TAVILY_MAX_RESULTS ?? 5),
     mcpConnectionTimeoutMs: Number(process.env.MCP_CONNECTION_TIMEOUT_MS ?? 5000),
     mcpExecutionTimeoutMs: Number(process.env.MCP_EXECUTION_TIMEOUT_MS ?? 8000),
   };

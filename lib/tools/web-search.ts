@@ -2,6 +2,7 @@ import { tool } from "@langchain/core/tools";
 import { z } from "zod";
 import { performWebSearch } from "../services/web-search";
 import { logger } from "../logger";
+import readEnv from "../config";
 
 export const webSearchTool = tool(
   async ({ query, maxResults }, config) => {
@@ -22,7 +23,7 @@ export const webSearchTool = tool(
     description: "Searches the web for real-time information, news, current events, or general knowledge. Use this tool whenever the user asks questions about facts, current events, or information not present in your local training data.",
     schema: z.object({
       query: z.string().describe("The search query to execute (e.g. 'current price of Bitcoin' or 'who won the latest Super Bowl')"),
-      maxResults: z.number().optional().default(5).describe("Maximum number of search results to return"),
+      maxResults: z.number().optional().default(readEnv().tavilyMaxResults).describe("Maximum number of search results to return"),
     }),
   }
 );

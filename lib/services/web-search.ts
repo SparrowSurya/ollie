@@ -18,7 +18,7 @@ export interface TavilySearchResponse {
  * @param query The search query string
  * @param maxResults Number of search results to retrieve (default: 5)
  */
-export async function performWebSearch(query: string, maxResults = 5): Promise<string> {
+export async function performWebSearch(query: string, maxResults?: number): Promise<string> {
   const env = readEnv();
   const apiKey = env.tavilyApiKey || process.env.TAVILY_API_KEY;
 
@@ -27,7 +27,9 @@ export async function performWebSearch(query: string, maxResults = 5): Promise<s
     throw new Error("Tavily API key is not configured. Please add TAVILY_API_KEY to your .env file.");
   }
 
-  logger.info(`Performing web search for query: "${query}" (maxResults: ${maxResults})`);
+  const targetMaxResults = maxResults ?? env.tavilyMaxResults;
+
+  logger.info(`Performing web search for query: "${query}" (maxResults: ${targetMaxResults})`);
 
   const response = await fetch("https://api.tavily.com/search", {
     method: "POST",
@@ -37,7 +39,7 @@ export async function performWebSearch(query: string, maxResults = 5): Promise<s
     },
     body: JSON.stringify({
       query,
-      max_results: maxResults,
+      max_results: targetMaxResults,
       search_depth: "basic",
       include_answer: false,
     }),
