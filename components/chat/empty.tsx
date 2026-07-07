@@ -11,14 +11,16 @@ export default function ChatEmpty() {
   // resolve this on the client-side after mount.
   useEffect(() => {
     const hours = new Date().getHours();
-    let timeGreeting = "Hello.";
+    const nickname = typeof window !== "undefined" ? localStorage.getItem("ollie-nickname") : null;
+    const nameSuffix = nickname && nickname.trim() ? `, ${nickname.trim()}` : "";
+    let timeGreeting = `Hello${nameSuffix}.`;
 
     if (hours < 12) {
-      timeGreeting = "Good morning.";
+      timeGreeting = `Good morning${nameSuffix}.`;
     } else if (hours < 17) {
-      timeGreeting = "Good afternoon.";
+      timeGreeting = `Good afternoon${nameSuffix}.`;
     } else {
-      timeGreeting = "Good evening.";
+      timeGreeting = `Good evening${nameSuffix}.`;
     }
 
     const timer = setTimeout(() => {
