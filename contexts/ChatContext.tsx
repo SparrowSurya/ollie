@@ -24,6 +24,7 @@ export interface DbMessageResponse {
   generatedImages?: string;
   parentMessageId?: string;
   timestamp: string | Date;
+  replyToText?: string;
 }
 
 export interface ToolInfo {
@@ -47,7 +48,7 @@ export interface ChatContextType {
     customInstructions?: string,
     mcpServers?: { name: string; url: string }[]
   ) => Promise<void>;
-  sendMessage: (text: string, imageFiles?: File[], existingImages?: string[], isRegenerating?: boolean, regenerateUserMsgId?: string) => Promise<void>;
+  sendMessage: (text: string, imageFiles?: File[], existingImages?: string[], isRegenerating?: boolean, regenerateUserMsgId?: string, replyToText?: string) => Promise<void>;
   stopGeneration: () => void;
   setActiveModel: (model: string) => void;
   errorToast: string | null;
@@ -258,6 +259,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
               images: m.images ? m.images.split(",") : undefined,
               generatedImages: m.generatedImages ? m.generatedImages.split(",") : undefined,
               parentMessageId: m.parentMessageId || undefined,
+              replyToText: m.replyToText || undefined,
             });
             setMessages((data.messages || []).map(mapMsg));
             setAllMessages((data.allMessages || []).map(mapMsg));
@@ -418,7 +420,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   );
 
   const sendMessage = useCallback(
-    async (text: string, imageFiles?: File[], existingImages?: string[], isRegenerating = false, regenerateUserMsgId?: string) => {
+    async (text: string, imageFiles?: File[], existingImages?: string[], isRegenerating = false, regenerateUserMsgId?: string, replyToText?: string) => {
       if (isGenerating || isBootstrapping || !isModelLoaded) return;
 
       setIsGenerating(true);
@@ -483,6 +485,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             id: crypto.randomUUID(),
             role: "user",
             content: text,
+            replyToText,
             images: uploadedUrls.length > 0 ? uploadedUrls : existingImages,
             timestamp: new Date(),
             parentMessageId: messages[messages.length - 1]?.id || undefined,
@@ -529,6 +532,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             nickname: storedNickname || undefined,
             aboutMe: storedAboutMe || undefined,
             isRegenerate: isRegenerating || undefined,
+            replyToText,
           }),
           signal: controller.signal,
         });
@@ -599,6 +603,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
               images: m.images ? m.images.split(",") : undefined,
               generatedImages: m.generatedImages ? m.generatedImages.split(",") : undefined,
               parentMessageId: m.parentMessageId || undefined,
+              replyToText: m.replyToText || undefined,
             });
             setMessages((syncData.messages || []).map(mapMsg));
             setAllMessages((syncData.allMessages || []).map(mapMsg));
@@ -690,6 +695,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
           images: m.images ? m.images.split(",") : undefined,
           generatedImages: m.generatedImages ? m.generatedImages.split(",") : undefined,
           parentMessageId: m.parentMessageId || undefined,
+          replyToText: m.replyToText || undefined,
         });
         setMessages((data.messages || []).map(mapMsg));
         setAllMessages((data.allMessages || []).map(mapMsg));
@@ -782,6 +788,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
           images: m.images ? m.images.split(",") : undefined,
           generatedImages: m.generatedImages ? m.generatedImages.split(",") : undefined,
           parentMessageId: m.parentMessageId || undefined,
+          replyToText: m.replyToText || undefined,
         });
 
         const newMessages = (data.messages || []).map(mapMsg);

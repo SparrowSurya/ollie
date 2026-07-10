@@ -8,7 +8,7 @@ export interface MessageViewProps {
   isBootstrapping?: boolean;
 }
 
-export default function MessageView({
+const MessageView = React.memo(function MessageView({
   messages,
   isGenerating = false,
   isBootstrapping = false,
@@ -48,9 +48,12 @@ export default function MessageView({
             modelName={msg.modelName}
             images={msg.images}
             generatedImages={msg.generatedImages}
+            replyToText={msg.replyToText}
           />
         );
       })}
     </div>
   );
-}
+});
+
+export default MessageView;

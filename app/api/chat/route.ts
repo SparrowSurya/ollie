@@ -8,7 +8,7 @@ export async function POST(req: Request) {
   let activeThreadId = "default-session";
   let targetModel = "unknown";
   try {
-    const { content, threadId, model, defaultImageModel, customInstructions, images, enabledTools, nickname, aboutMe, isRegenerate } = await req.json();
+    const { content, threadId, model, defaultImageModel, customInstructions, images, enabledTools, nickname, aboutMe, isRegenerate, replyToText } = await req.json();
 
     if (!content) {
       return NextResponse.json({ error: "Missing content" }, { status: 400 });
@@ -53,7 +53,8 @@ export async function POST(req: Request) {
       req.signal,
       nickname,
       aboutMe,
-      isRegenerate
+      isRegenerate,
+      replyToText
     );
 
     return new Response(stream, {

@@ -498,7 +498,8 @@ export function streamAgentResponse(
   signal?: AbortSignal,
   nickname?: string,
   aboutMe?: string,
-  isRegenerate?: boolean
+  isRegenerate?: boolean,
+  replyToText?: string
 ): ReadableStream {
   const encoder = new TextEncoder();
 
@@ -561,7 +562,7 @@ export function streamAgentResponse(
         } else {
           userMsgId = crypto.randomUUID();
           const parentMessageId = dbMessages[dbMessages.length - 1]?.id || undefined;
-          await saveMessage(userMsgId, threadId, "user", message, undefined, images?.join(","), undefined, parentMessageId);
+          await saveMessage(userMsgId, threadId, "user", message, undefined, images?.join(","), undefined, parentMessageId, replyToText);
         }
 
         // 4. Run the graph and listen to stream events

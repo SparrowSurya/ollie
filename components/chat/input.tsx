@@ -7,11 +7,13 @@ import { useOllama } from "@/contexts/OllamaContext";
 
 export interface ChatInputProps {
   placeholder?: string;
-  onSend?: (text: string, imageFiles?: File[]) => void;
+  onSend?: (text: string, imageFiles?: File[], replyToText?: string) => void;
   disabled?: boolean;
   activeModel?: string;
   runnableModels?: string[];
   onModelChange?: (model: string) => void;
+  replyToText?: string | null;
+  onClearReply?: () => void;
 }
 
 export default function ChatInput({
@@ -21,6 +23,8 @@ export default function ChatInput({
   activeModel = "",
   runnableModels = [],
   onModelChange,
+  replyToText,
+  onClearReply,
 }: Readonly<ChatInputProps>) {
   interface ImageAttachment {
     file: File;
@@ -54,6 +58,8 @@ export default function ChatInput({
       textareaRef.current?.focus();
     }
   }, [activeSessionId, messages.length]);
+
+  // Banner state is managed in parent ChatView
 
   const [mcpCount, setMcpCount] = useState<number>(0);
 
@@ -153,7 +159,7 @@ export default function ChatInput({
     if (message === "" && attachments.length === 0) return;
 
     const filesToSend = attachments.map((a) => a.file);
-    onSend?.(message, filesToSend);
+    onSend?.(message, filesToSend, replyToText || undefined);
 
     // Revoke all preview URLs
     attachments.forEach((a) => URL.revokeObjectURL(a.previewUrl));
@@ -180,6 +186,21 @@ export default function ChatInput({
     <div
       className="flex flex-col glass-card rounded-2xl md:rounded-3xl p-3 px-4 transition-all shadow-lg focus-within:border-user-accent focus-within:ring-1 focus-within:ring-user-accent/30 gap-1.5"
     >
+      {/* Quoted Reply Banner */}
+      {replyToText && (
+        <div className="flex items-start justify-between bg-base-content/5 border-l-2 border-user-accent p-2 rounded-r-lg text-xs mb-2">
+          <div className="flex-1 text-base-content/75 line-clamp-3 whitespace-pre-wrap select-none font-sans italic pr-2 animate-fade-in">
+            {replyToText}
+          </div>
+          <button
+            type="button"
+            onClick={onClearReply}
+            className="btn btn-ghost btn-circle btn-xs text-base-content/50 hover:text-base-content"
+          >
+            <X size={12} />
+          </button>
+        </div>
+      )}
       {/* File attachment previews */}
       {attachments.length > 0 && (
         <div className="flex flex-wrap gap-2.5 mb-2 select-none">

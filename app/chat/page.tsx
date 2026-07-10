@@ -44,11 +44,15 @@ export default function ChatPage() {
   const isImageMode = imageModels.includes(activeModel);
   const modelsToShow = isImageMode ? imageModels : runnableModels;
 
+  const handleSend = (text: string, imageFiles?: File[], replyToText?: string) => {
+    sendMessage(text, imageFiles, undefined, undefined, undefined, replyToText);
+  };
+
   return (
     <div className="flex-1 min-h-0 w-full">
       <ChatView
         messages={messages}
-        onSend={sendMessage}
+        onSend={handleSend}
         isGenerating={isGenerating}
         isBootstrapping={isBootstrapping}
         isModelLoaded={isModelLoaded}

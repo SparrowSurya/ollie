@@ -12,6 +12,7 @@ export interface DbMessage {
   generatedImages?: string;
   parentMessageId?: string;
   timestamp: Date;
+  replyToText?: string;
 }
 
 /**
@@ -41,6 +42,7 @@ export async function getMessages(sessionId: string): Promise<DbMessage[]> {
     generatedImages: m.generatedImages || undefined,
     parentMessageId: m.parentMessageId || undefined,
     timestamp: m.timestamp,
+    replyToText: m.replyToText || undefined,
   }));
 
   const isTreeSession = dbMessages.some((m) => m.parentMessageId !== undefined && m.parentMessageId !== null);
@@ -78,7 +80,8 @@ export async function saveMessage(
   modelName?: string,
   images?: string,
   generatedImages?: string,
-  parentMessageId?: string
+  parentMessageId?: string,
+  replyToText?: string
 ): Promise<void> {
   const prisma = getPrisma();
   
@@ -89,6 +92,7 @@ export async function saveMessage(
       images: images || null,
       generatedImages: generatedImages || null,
       parentMessageId: parentMessageId || null,
+      replyToText: replyToText || null,
     },
     create: {
       id,
@@ -99,6 +103,7 @@ export async function saveMessage(
       images: images || null,
       generatedImages: generatedImages || null,
       parentMessageId: parentMessageId || null,
+      replyToText: replyToText || null,
     },
   });
 
@@ -192,6 +197,7 @@ export async function getAllSessionMessages(sessionId: string): Promise<DbMessag
     generatedImages: m.generatedImages || undefined,
     parentMessageId: m.parentMessageId || undefined,
     timestamp: m.timestamp,
+    replyToText: m.replyToText || undefined,
   }));
 }
 
@@ -265,6 +271,7 @@ export async function getMessagesPaginated(
       generatedImages: m.generatedImages || undefined,
       parentMessageId: m.parentMessageId || undefined,
       timestamp: m.timestamp,
+      replyToText: m.replyToText || undefined,
     });
   });
 

@@ -8,11 +8,11 @@ import { ChatUiMessage } from "./types";
 import { useSettings } from "@/contexts/SettingsContext";
 import { useOllama } from "@/contexts/OllamaContext";
 import { useChatContext } from "@/contexts/ChatContext";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Quote } from "lucide-react";
 
 export interface ChatViewProps {
   messages: ChatUiMessage[];
-  onSend: (text: string, imageFiles?: File[]) => void;
+  onSend: (text: string, imageFiles?: File[], replyToText?: string) => void;
   isGenerating?: boolean;
   isBootstrapping?: boolean;
   isModelLoaded?: boolean;
@@ -47,6 +47,11 @@ export default function ChatView({
   const { hasMore, isLoadingMore, loadOlderMessages } = useChatContext();
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const isLockedRef = useRef<boolean>(true);
+
+  const [showReplyButton, setShowReplyButton] = useState(false);
+  const [replyButtonPos, setReplyButtonPos] = useState({ top: 0, left: 0 });
+  const [selectedText, setSelectedText] = useState("");
+  const [activeReplyText, setActiveReplyText] = useState<string | null>(null);
 
   const { customInstructions, setCustomInstructions } = useSettings();
   const { imageModels } = useOllama();
@@ -123,6 +128,105 @@ export default function ChatView({
       return () => clearTimeout(timer);
     }
   }, [errorToast, setErrorToast]);
+
+  // Handle text selection for reply feature
+  useEffect(() => {
+    const handleSelectionEnd = () => {
+      // Small delay to ensure browser Selection APIs are updated
+      setTimeout(() => {
+        const selection = window.getSelection();
+        if (!selection || selection.isCollapsed) {
+          setShowReplyButton(false);
+          return;
+        }
+
+        const text = selection.toString().trim();
+        if (!text) {
+          setShowReplyButton(false);
+          return;
+        }
+
+        const anchorNode = selection.anchorNode;
+        const focusNode = selection.focusNode;
+        if (!anchorNode || !focusNode) return;
+
+        const anchorEl = anchorNode instanceof Element ? anchorNode : anchorNode.parentElement;
+        const focusEl = focusNode instanceof Element ? focusNode : focusNode.parentElement;
+
+        if (!anchorEl || !focusEl) return;
+
+        // Check if selection is within a details block (thinking process)
+        if (anchorEl.closest("details") || focusEl.closest("details")) {
+          setShowReplyButton(false);
+          return;
+        }
+
+        const anchorEligible = anchorEl.closest('[data-reply-eligible="true"]');
+        const focusEligible = focusEl.closest('[data-reply-eligible="true"]');
+
+        if (!anchorEligible || !focusEligible || anchorEligible !== focusEligible) {
+          setShowReplyButton(false);
+          return;
+        }
+
+        try {
+          const range = selection.getRangeAt(0);
+          const rect = range.getBoundingClientRect();
+          const container = scrollContainerRef.current;
+          if (container) {
+            const containerRect = container.getBoundingClientRect();
+            setReplyButtonPos({
+              top: rect.top - containerRect.top + container.scrollTop - 8,
+              left: rect.left - containerRect.left + container.scrollLeft + rect.width / 2,
+            });
+            setSelectedText(text);
+            setShowReplyButton(true);
+          }
+        } catch (e) {
+          console.error("Error setting reply button position:", e);
+        }
+      }, 10);
+    };
+
+    const handleSelectionStart = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (target && target.closest(".reply-selection-btn")) {
+        return;
+      }
+      setShowReplyButton(false);
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        window.getSelection()?.removeAllRanges();
+        setShowReplyButton(false);
+      }
+    };
+
+    document.addEventListener("mouseup", handleSelectionEnd);
+    document.addEventListener("keyup", handleSelectionEnd);
+    document.addEventListener("mousedown", handleSelectionStart);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mouseup", handleSelectionEnd);
+      document.removeEventListener("keyup", handleSelectionEnd);
+      document.removeEventListener("mousedown", handleSelectionStart);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
+
+  const handleReply = () => {
+    if (selectedText) {
+      setActiveReplyText(selectedText);
+      window.getSelection()?.removeAllRanges();
+      setShowReplyButton(false);
+    }
+  };
+
+  const handleSendWithReply = (text: string, imageFiles?: File[], replyTo?: string) => {
+    onSend(text, imageFiles, replyTo);
+    setActiveReplyText(null);
+  };
 
   // Track user's manual scroll actions to toggle the auto-scroll lock and trigger pagination
   const handleScroll = () => {
@@ -444,11 +548,13 @@ export default function ChatView({
           <ChatEmpty />
           <div className="w-full">
             <ChatInput
-              onSend={onSend}
+              onSend={handleSendWithReply}
               disabled={isBootstrapping}
               activeModel={activeSelected}
               runnableModels={runnableModels}
               onModelChange={handleModelChange}
+              replyToText={activeReplyText}
+              onClearReply={() => setActiveReplyText(null)}
             />
           </div>
         </div>
@@ -459,7 +565,7 @@ export default function ChatView({
           <div
             ref={scrollContainerRef}
             onScroll={handleScroll}
-            className="flex-1 overflow-y-auto min-h-0 no-scrollbar w-full"
+            className="flex-1 overflow-y-auto min-h-0 no-scrollbar w-full relative"
           >
             {/* Inner column keeps message content centered and readable */}
             <div className="w-full max-w-3xl mx-auto px-4">
@@ -478,15 +584,35 @@ export default function ChatView({
                 isBootstrapping={isBootstrapping}
               />
             </div>
+
+            {showReplyButton && (
+              <button
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  handleReply();
+                }}
+                className="reply-selection-btn absolute z-50 flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg shadow-xl bg-base-100/90 text-base-content border border-base-content/15 backdrop-blur-md hover:bg-user-accent hover:text-white hover:border-user-accent transition-all duration-200 cursor-pointer animate-fade-in -translate-x-1/2 -translate-y-full"
+                style={{
+                  top: `${replyButtonPos.top}px`,
+                  left: `${replyButtonPos.left}px`,
+                }}
+              >
+                <Quote className="w-3.5 h-3.5" />
+                <span>Reply</span>
+              </button>
+            )}
           </div>
           {/* Bottom input section centered and aligned with message column */}
           <div className="py-4 bg-transparent shrink-0 w-full max-w-3xl mx-auto px-4">
             <ChatInput
-              onSend={onSend}
+              onSend={handleSendWithReply}
               disabled={isBootstrapping}
               activeModel={activeSelected}
               runnableModels={runnableModels}
               onModelChange={handleModelChange}
+              replyToText={activeReplyText}
+              onClearReply={() => setActiveReplyText(null)}
             />
           </div>
         </div>

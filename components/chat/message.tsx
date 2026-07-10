@@ -14,9 +14,10 @@ export interface ChatMessageProps {
   modelName?: string;
   images?: string[];
   generatedImages?: string[];
+  replyToText?: string;
 }
 
-export default function ChatMessage({
+const ChatMessage = React.memo(function ChatMessage({
   id,
   role,
   content,
@@ -24,6 +25,7 @@ export default function ChatMessage({
   modelName,
   images,
   generatedImages,
+  replyToText,
 }: Readonly<ChatMessageProps>) {
   const { allMessages, switchBranch, editMessage, regenerateMessage, branchToNewChat } = useChatContext();
 
@@ -217,7 +219,14 @@ export default function ChatMessage({
               </div>
             </div>
           ) : (
-            <div className="glass-card text-base-content max-w-[70%] px-4 py-3 rounded-2xl rounded-tr-xs shadow-md text-base font-sans whitespace-pre-wrap">
+            <div
+              className="glass-card text-base-content max-w-[70%] px-4 py-3 rounded-2xl rounded-tr-xs shadow-md text-base font-sans whitespace-pre-wrap"
+            >
+              {replyToText && (
+                <div className="bg-base-content/5 border-l-2 border-user-accent p-2 rounded-r-lg text-xs mb-2 select-none italic text-base-content/75 line-clamp-3">
+                  {replyToText}
+                </div>
+              )}
               {content}
             </div>
           )}
@@ -379,6 +388,7 @@ export default function ChatMessage({
         {contentHtml && (
           <div
             className="markdown-content w-full select-text"
+            data-reply-eligible="true"
             onClick={handleCopyCodeClick}
             dangerouslySetInnerHTML={{ __html: contentHtml }}
           />
@@ -559,4 +569,6 @@ export default function ChatMessage({
       )}
     </>
   );
-}
+});
+
+export default ChatMessage;

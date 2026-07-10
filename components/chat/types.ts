@@ -9,5 +9,6 @@ export interface ChatUiMessage {
   images?: string[];
   generatedImages?: string[];
   parentMessageId?: string;
+  replyToText?: string;
 }
 
