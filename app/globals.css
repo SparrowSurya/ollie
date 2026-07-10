@@ -338,3 +338,66 @@ body.lightbox-open .global-download-btn {
   pointer-events: none;
   filter: blur(1px);
 }
+
+/* ============================================================
+   CHAT ACTION BUTTON ICON THEME COLORING & HOVER ACCENTS
+   ============================================================ */
+
+.action-btn-img {
+  /* Default gray theme color from Catppuccin */
+  background-color: var(--ctp-overlay1);
+  transition: background-color 0.2s ease;
+  object-position: -9999px -9999px;
+}
+
+/* When the button itself is hovered, change its icon to the accent color */
+button:hover .action-btn-img {
+  background-color: var(--user-accent) !important;
+}
+
+/* For check icon success green state */
+.action-btn-img-success {
+  background-color: var(--ctp-green) !important;
+  object-position: -9999px -9999px;
+  transition: background-color 0.2s ease;
+}
+
+/* Mask rules based on the src image attribute */
+.action-btn-img[src*="copy.svg"] {
+  mask: url(/icons/copy.svg) no-repeat center;
+  mask-size: contain;
+  -webkit-mask: url(/icons/copy.svg) no-repeat center;
+  -webkit-mask-size: contain;
+}
+
+.action-btn-img[src*="edit.svg"] {
+  mask: url(/icons/edit.svg) no-repeat center;
+  mask-size: contain;
+  -webkit-mask: url(/icons/edit.svg) no-repeat center;
+  -webkit-mask-size: contain;
+}
+
+.action-btn-img[src*="branch.svg"] {
+  mask: url(/icons/branch.svg) no-repeat center;
+  mask-size: contain;
+  -webkit-mask: url(/icons/branch.svg) no-repeat center;
+  -webkit-mask-size: contain;
+}
+
+.action-btn-img[src*="regenerate.svg"] {
+  mask: url(/icons/regenerate.svg) no-repeat center;
+  mask-size: contain;
+  -webkit-mask: url(/icons/regenerate.svg) no-repeat center;
+  -webkit-mask-size: contain;
+}
+
+/* Check icon success green state mask */
+.action-btn-img-success[src*="check.svg"] {
+  mask: url(/icons/check.svg) no-repeat center;
+  mask-size: contain;
+  -webkit-mask: url(/icons/check.svg) no-repeat center;
+  -webkit-mask-size: contain;
+}
+
+
+

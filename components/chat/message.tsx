@@ -3,6 +3,7 @@ import { MessageRole } from "./types";
 import { parseResponseParts } from "@/lib/markdown";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
 import { SafeImage } from "./image-placeholders";
+import Image from "next/image";
 
 export interface ChatMessageProps {
   role: MessageRole;
@@ -24,6 +25,26 @@ export default function ChatMessage({
   const isUser = role === "user";
   const displayImages = images || generatedImages;
   const [activeImageIndex, setActiveImageIndex] = useState<number | null>(null);
+  const [copiedPrompt, setCopiedPrompt] = useState(false);
+  const [copiedResponse, setCopiedResponse] = useState(false);
+
+  const handleCopyPrompt = () => {
+    navigator.clipboard.writeText(content).then(() => {
+      setCopiedPrompt(true);
+      setTimeout(() => setCopiedPrompt(false), 2000);
+    }).catch((err) => {
+      console.error("Failed to copy prompt: ", err);
+    });
+  };
+
+  const handleCopyResponse = () => {
+    navigator.clipboard.writeText(cleanedContent).then(() => {
+      setCopiedResponse(true);
+      setTimeout(() => setCopiedResponse(false), 2000);
+    }).catch((err) => {
+      console.error("Failed to copy response: ", err);
+    });
+  };
 
   // Keyboard navigation listener for full screen modal
   useEffect(() => {
@@ -67,13 +88,13 @@ export default function ChatMessage({
       // Read text content and copy to user clipboard
       navigator.clipboard.writeText(code.innerText).then(() => {
         // Temporarily show success state referencing the static check SVG
-        button.innerHTML = `<img src="/resources/svg/check-icon.svg" class="w-3.25 h-3.25 pointer-events-none" alt="Copied" />`;
+        button.innerHTML = `<img src="/icons/check.svg" class="w-3.25 h-3.25 pointer-events-none" alt="Copied" />`;
         button.classList.add("text-success");
         button.setAttribute("title", "Copied!");
 
         setTimeout(() => {
           // Restore original copy button state referencing the static copy SVG asset
-          button.innerHTML = `<img src="/resources/svg/copy-icon.svg" class="w-3.25 h-3.25 pointer-events-none" alt="Copy" />`;
+          button.innerHTML = `<img src="/icons/copy.svg" class="w-3.25 h-3.25 pointer-events-none" alt="Copy" />`;
           button.classList.remove("text-success");
           button.setAttribute("title", "Copy code");
         }, 2000);
@@ -104,7 +125,7 @@ export default function ChatMessage({
   if (isUser) {
     return (
       <>
-        <div className="flex flex-col items-end w-full my-2">
+        <div className="flex flex-col items-end w-full my-2 group">
           {displayImages && displayImages.length > 0 && (
             <div className="flex flex-wrap gap-2 mb-2 max-w-[70%] justify-end select-none">
               {displayImages.map((src, index) => (
@@ -126,6 +147,35 @@ export default function ChatMessage({
           )}
           <div className="glass-card text-base-content max-w-[70%] px-4 py-3 rounded-2xl rounded-tr-xs shadow-md text-base font-sans whitespace-pre-wrap">
             {content}
+          </div>
+          <div className="flex items-center gap-2 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity select-none duration-200">
+            <button
+              onClick={handleCopyPrompt}
+              className="btn btn-square btn-xs bg-base-100 hover:bg-base-200 border border-base-content/15 hover:border-user-accent shadow-xs flex items-center justify-center transition-colors duration-200"
+              title={copiedPrompt ? "Copied!" : "Copy prompt"}
+              aria-label={copiedPrompt ? "Copied!" : "Copy prompt"}
+            >
+              <Image
+                src={copiedPrompt ? "/icons/check.svg" : "/icons/copy.svg"}
+                className={`w-3.25 h-3.25 pointer-events-none ${copiedPrompt ? "action-btn-img-success" : "action-btn-img"}`}
+                alt="Copy"
+                width={13}
+                height={13}
+              />
+            </button>
+            <button
+              className="btn btn-square btn-xs bg-base-100 hover:bg-base-200 border border-base-content/15 hover:border-user-accent shadow-xs flex items-center justify-center cursor-not-allowed transition-colors duration-200"
+              title="Edit prompt"
+              aria-label="Edit prompt"
+            >
+              <Image
+                src="/icons/edit.svg"
+                className="w-3.25 h-3.25 pointer-events-none action-btn-img"
+                alt="Edit"
+                width={13}
+                height={13}
+              />
+            </button>
           </div>
         </div>
 
@@ -200,7 +250,7 @@ export default function ChatMessage({
   // Assistant response is raw text flowing top-down on the left, displaying optional thinking process
   return (
     <>
-      <div className="flex flex-col justify-start w-full my-4 font-sans text-base leading-relaxed text-base-content max-w-full">
+      <div className="flex flex-col justify-start w-full my-4 font-sans text-base leading-relaxed text-base-content max-w-full group">
         {modelName && (
           <span className="text-xs font-mono font-bold tracking-wider text-base-content/50 mb-1.5 block select-none uppercase">
             {modelName}
@@ -209,11 +259,11 @@ export default function ChatMessage({
         {hasThinking && (
           <details
             open={isStillThinking}
-            className="mb-4 group border-l-2 border-user-accent/20 pl-4 select-none w-full"
+            className="mb-4 group/thinking border-l-2 border-user-accent/20 pl-4 select-none w-full"
           >
             <summary className="cursor-pointer text-xs font-medium tracking-wide uppercase text-base-content/50 hover:text-base-content flex items-center gap-2 list-none outline-hidden">
               {isStillThinking ? "Thinking Process..." : "Thought Process"}
-              <span className="text-[10px] opacity-60 transition-transform group-open:rotate-90">
+              <span className="text-[10px] opacity-60 transition-transform group-open/thinking:rotate-90">
                 ▶
               </span>
             </summary>
@@ -269,6 +319,51 @@ export default function ChatMessage({
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {!pendingStatus && (
+          <div className="flex items-center gap-2 mt-2 opacity-0 group-hover:opacity-100 transition-opacity select-none duration-200">
+            <button
+              onClick={handleCopyResponse}
+              className="btn btn-square btn-xs bg-base-100 hover:bg-base-200 border border-base-content/15 hover:border-user-accent shadow-xs flex items-center justify-center transition-colors duration-200"
+              title={copiedResponse ? "Copied!" : "Copy response"}
+              aria-label={copiedResponse ? "Copied!" : "Copy response"}
+            >
+              <Image
+                src={copiedResponse ? "/icons/check.svg" : "/icons/copy.svg"}
+                className={`w-3.25 h-3.25 pointer-events-none ${copiedResponse ? "action-btn-img-success" : "action-btn-img"}`}
+                alt="Copy"
+                width={13}
+                height={13}
+              />
+            </button>
+            <button
+              className="btn btn-square btn-xs bg-base-100 hover:bg-base-200 border border-base-content/15 hover:border-user-accent shadow-xs flex items-center justify-center cursor-not-allowed transition-colors duration-200"
+              title="Regenerate response"
+              aria-label="Regenerate response"
+            >
+              <Image
+                src="/icons/regenerate.svg"
+                className="w-3.25 h-3.25 pointer-events-none action-btn-img"
+                alt="Regenerate"
+                width={13}
+                height={13}
+              />
+            </button>
+            <button
+              className="btn btn-square btn-xs bg-base-100 hover:bg-base-200 border border-base-content/15 hover:border-user-accent shadow-xs flex items-center justify-center cursor-not-allowed transition-colors duration-200"
+              title="Branch to new chat"
+              aria-label="Branch to new chat"
+            >
+              <Image
+                src="/icons/branch.svg"
+                className="w-3.25 h-3.25 pointer-events-none action-btn-img"
+                alt="Branch"
+                width={13}
+                height={13}
+              />
+            </button>
           </div>
         )}
       </div>
