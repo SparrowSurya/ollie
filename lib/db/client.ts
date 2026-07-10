@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { PrismaClient } from "@prisma/client";
 import { PrismaLibSql } from "@prisma/adapter-libsql";
 import { PrismaPg } from "@prisma/adapter-pg";
@@ -7,7 +6,7 @@ import { Pool } from "pg";
 const databaseUrl = process.env.DATABASE_URL || "file:./dev.db";
 const databaseType = process.env.DATABASE_TYPE || (databaseUrl.startsWith("postgres://") || databaseUrl.startsWith("postgresql://") ? "postgres" : "sqlite3");
 
-let prismaInstance: any = null;
+let prismaInstance: PrismaClient | null = null;
 
 /**
  * Initializes and returns the singleton Prisma Client instance

@@ -47,7 +47,7 @@ export interface ChatContextType {
     customInstructions?: string,
     mcpServers?: { name: string; url: string }[]
   ) => Promise<void>;
-  sendMessage: (text: string, imageFiles?: File[], existingImages?: string[]) => Promise<void>;
+  sendMessage: (text: string, imageFiles?: File[], existingImages?: string[], isRegenerating?: boolean, regenerateUserMsgId?: string) => Promise<void>;
   stopGeneration: () => void;
   setActiveModel: (model: string) => void;
   errorToast: string | null;
@@ -66,6 +66,9 @@ export interface ChatContextType {
   switchBranch: (messageId: string) => Promise<void>;
   editMessage: (messageId: string, newText: string) => Promise<void>;
   regenerateMessage: (assistantMessageId: string) => Promise<void>;
+  hasMore: boolean;
+  isLoadingMore: boolean;
+  loadOlderMessages: () => Promise<void>;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -91,6 +94,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [messages, setMessages] = useState<ChatUiMessage[]>([]);
   const [allMessages, setAllMessages] = useState<ChatUiMessage[]>([]);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
+  const [hasMore, setHasMore] = useState<boolean>(false);
+  const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
   const [isBootstrapping, setIsBootstrapping] = useState<boolean>(false);
   const [isModelLoaded, setIsModelLoaded] = useState<boolean>(false);
   const [errorToast, setErrorToast] = useState<string | null>(null);
@@ -218,6 +223,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         loadedSessionIdRef.current = newUuid;
         setMessages([]);
         setAllMessages([]);
+        setHasMore(false);
 
         if (isStartingImageChatRef.current) {
           setIsModelLoaded(true);
@@ -239,7 +245,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
       const loadSession = async () => {
         try {
-          const response = await fetch(`/api/sessions/messages?id=${activeSessionId}`);
+          const response = await fetch(`/api/sessions/messages?id=${activeSessionId}&limit=25`);
           if (response.ok) {
             const data = await response.json();
             const mapMsg = (m: DbMessageResponse) => ({
@@ -254,6 +260,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             });
             setMessages((data.messages || []).map(mapMsg));
             setAllMessages((data.allMessages || []).map(mapMsg));
+            setHasMore(data.hasMore ?? false);
             if (data.model) {
               setActiveModel(data.model);
             }
@@ -263,12 +270,14 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             // Session not found in DB, treat as a fresh chat session with this ID
             setMessages([]);
             setAllMessages([]);
+            setHasMore(false);
             setIsModelLoaded(false);
           }
         } catch (e) {
           console.error("ChatContext: Failed to load session messages:", e);
           setMessages([]);
           setAllMessages([]);
+          setHasMore(false);
           setIsModelLoaded(false);
         }
       };
@@ -408,7 +417,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   );
 
   const sendMessage = useCallback(
-    async (text: string, imageFiles?: File[], existingImages?: string[]) => {
+    async (text: string, imageFiles?: File[], existingImages?: string[], isRegenerating = false, regenerateUserMsgId?: string) => {
       if (isGenerating || isBootstrapping || !isModelLoaded) return;
 
       setIsGenerating(true);
@@ -421,7 +430,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       abortControllerRef.current = controller;
 
       try {
-        if (imageFiles && imageFiles.length > 0) {
+        if (!isRegenerating && imageFiles && imageFiles.length > 0) {
           const formData = new FormData();
           imageFiles.forEach((file) => {
             formData.append("files", file);
@@ -441,27 +450,56 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
           uploadedUrls = uploadData.urls || [];
         }
 
-        const userMessage: ChatUiMessage = {
-          id: crypto.randomUUID(),
-          role: "user",
-          content: text,
-          images: uploadedUrls.length > 0 ? uploadedUrls : existingImages,
-          timestamp: new Date(),
-          parentMessageId: messages[messages.length - 1]?.id || undefined,
-        };
+        let userMsgId = "";
+        let assistantMessagePlaceholder: ChatUiMessage;
 
-        const assistantMessagePlaceholder: ChatUiMessage = {
-          id: assistantMessageId,
-          role: "assistant",
-          content: "",
-          timestamp: new Date(),
-          modelName: activeModel,
-          parentMessageId: userMessage.id,
-        };
+        if (isRegenerating) {
+          if (!regenerateUserMsgId) {
+            throw new Error("Cannot regenerate: missing user message ID");
+          }
+          userMsgId = regenerateUserMsgId;
 
-        // Add user message and assistant placeholder message to state
-        setMessages((prev) => [...prev, userMessage, assistantMessagePlaceholder]);
-        setAllMessages((prev) => [...prev, userMessage, assistantMessagePlaceholder]);
+          assistantMessagePlaceholder = {
+            id: assistantMessageId,
+            role: "assistant",
+            content: "",
+            timestamp: new Date(),
+            modelName: activeModel,
+            parentMessageId: userMsgId,
+          };
+
+          const userIdx = messages.findIndex((m) => m.id === regenerateUserMsgId);
+          const parentPath = userIdx !== -1 ? messages.slice(0, userIdx + 1) : messages;
+
+          setMessages([...parentPath, assistantMessagePlaceholder]);
+          setAllMessages((prev) => {
+            const userIdxAll = prev.findIndex((m) => m.id === regenerateUserMsgId);
+            const parentPathAll = userIdxAll !== -1 ? prev.slice(0, userIdxAll + 1) : prev;
+            return [...parentPathAll, assistantMessagePlaceholder];
+          });
+        } else {
+          const userMessage: ChatUiMessage = {
+            id: crypto.randomUUID(),
+            role: "user",
+            content: text,
+            images: uploadedUrls.length > 0 ? uploadedUrls : existingImages,
+            timestamp: new Date(),
+            parentMessageId: messages[messages.length - 1]?.id || undefined,
+          };
+          userMsgId = userMessage.id;
+
+          assistantMessagePlaceholder = {
+            id: assistantMessageId,
+            role: "assistant",
+            content: "",
+            timestamp: new Date(),
+            modelName: activeModel,
+            parentMessageId: userMsgId,
+          };
+
+          setMessages((prev) => [...prev, userMessage, assistantMessagePlaceholder]);
+          setAllMessages((prev) => [...prev, userMessage, assistantMessagePlaceholder]);
+        }
 
         // If we are on /chat, redirect to /chat/[activeSessionId] on first message submission
         if (!urlSessionId) {
@@ -485,10 +523,11 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             model: activeModel,
             defaultImageModel: defaultImageModel || undefined,
             customInstructions: customInstructions || "",
-            images: uploadedUrls.length > 0 ? uploadedUrls : undefined,
+            images: isRegenerating ? existingImages : (uploadedUrls.length > 0 ? uploadedUrls : undefined),
             enabledTools: activeTools,
             nickname: storedNickname || undefined,
             aboutMe: storedAboutMe || undefined,
+            isRegenerate: isRegenerating || undefined,
           }),
           signal: controller.signal,
         });
@@ -547,7 +586,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
         // Sync messages from the database to load the generated images correctly into the message state gallery
         try {
-          const syncRes = await fetch(`/api/sessions/messages?id=${activeSessionId}`);
+          const syncRes = await fetch(`/api/sessions/messages?id=${activeSessionId}&limit=25`);
           if (syncRes.ok) {
             const syncData = await syncRes.json();
             const mapMsg = (m: DbMessageResponse) => ({
@@ -562,6 +601,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             });
             setMessages((syncData.messages || []).map(mapMsg));
             setAllMessages((syncData.allMessages || []).map(mapMsg));
+            setHasMore(syncData.hasMore ?? false);
           }
         } catch (syncErr) {
           console.error("Failed to sync message state after stream complete:", syncErr);
@@ -619,30 +659,6 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   }, [activeSessionId, fetchSessions, setActiveModel]);
 
   const switchBranch = useCallback(async (messageId: string) => {
-    // 1. Walk forward from messageId to find the leaf node of this branch
-    let currentId = messageId;
-    
-    // Map parentMessageId to children messages
-    const parentToChildren = new Map<string, ChatUiMessage[]>();
-    allMessages.forEach((m) => {
-      if (m.parentMessageId) {
-        const children = parentToChildren.get(m.parentMessageId) || [];
-        children.push(m);
-        parentToChildren.set(m.parentMessageId, children);
-      }
-    });
-
-    // Walk down to the leaf node
-    while (true) {
-      const children = parentToChildren.get(currentId);
-      if (!children || children.length === 0) {
-        break; // Reached leaf
-      }
-      // If there are multiple children (sub-branches), pick the one with the latest timestamp
-      children.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-      currentId = children[0].id;
-    }
-
     const response = await fetch("/api/sessions/messages", {
       method: "PATCH",
       headers: {
@@ -650,7 +666,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       },
       body: JSON.stringify({
         sessionId: activeSessionId,
-        activeMessageId: currentId,
+        activeMessageId: messageId,
+        leafWalk: true,
       }),
     });
 
@@ -660,7 +677,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      const res = await fetch(`/api/sessions/messages?id=${activeSessionId}`);
+      const res = await fetch(`/api/sessions/messages?id=${activeSessionId}&limit=25`);
       if (res.ok) {
         const data = await res.json();
         const mapMsg = (m: DbMessageResponse) => ({
@@ -675,11 +692,12 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         });
         setMessages((data.messages || []).map(mapMsg));
         setAllMessages((data.allMessages || []).map(mapMsg));
+        setHasMore(data.hasMore ?? false);
       }
     } catch (e) {
       console.error("ChatContext: Failed to reload messages after branch switch:", e);
     }
-  }, [activeSessionId, allMessages]);
+  }, [activeSessionId]);
 
   const editMessage = useCallback(async (messageId: string, newText: string) => {
     const msg = allMessages.find((m) => m.id === messageId);
@@ -718,8 +736,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     const userPrompt = messages[msgIndex - 1];
     if (userPrompt.role !== "user") return;
 
-    const parentId = userPrompt.parentMessageId || "";
-
+    // 1. Switch active message of the session to the user prompt (parent of the regenerated response)
     const branchRes = await fetch("/api/sessions/messages", {
       method: "PATCH",
       headers: {
@@ -727,7 +744,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       },
       body: JSON.stringify({
         sessionId: activeSessionId,
-        activeMessageId: parentId || null,
+        activeMessageId: userPrompt.id,
       }),
     });
 
@@ -736,12 +753,54 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const parentPath = messages.slice(0, msgIndex - 1);
+    // 2. Truncate client messages to include the user prompt
+    const parentPath = messages.slice(0, msgIndex);
     setMessages(parentPath);
     setAllMessages(parentPath);
 
-    await sendMessage(userPrompt.content, undefined, userPrompt.images);
+    // 3. Trigger standard message streaming using isRegenerating = true and passing the prompt ID
+    await sendMessage(userPrompt.content, undefined, userPrompt.images, true, userPrompt.id);
   }, [messages, activeSessionId, sendMessage]);
+
+  const loadOlderMessages = useCallback(async () => {
+    if (isLoadingMore || !hasMore || messages.length === 0) return;
+
+    setIsLoadingMore(true);
+    const cursor = messages[0].id;
+
+    try {
+      const response = await fetch(`/api/sessions/messages?id=${activeSessionId}&limit=25&cursor=${cursor}`);
+      if (response.ok) {
+        const data = await response.json();
+        const mapMsg = (m: DbMessageResponse) => ({
+          id: m.id,
+          role: m.role,
+          content: m.content,
+          timestamp: new Date(m.timestamp),
+          modelName: m.modelName || undefined,
+          images: m.images ? m.images.split(",") : undefined,
+          generatedImages: m.generatedImages ? m.generatedImages.split(",") : undefined,
+          parentMessageId: m.parentMessageId || undefined,
+        });
+
+        const newMessages = (data.messages || []).map(mapMsg);
+        const newAllMessages = (data.allMessages || []).map(mapMsg);
+
+        setMessages((prev) => [...newMessages, ...prev]);
+        setAllMessages((prev) => {
+          const map = new Map<string, ChatUiMessage>();
+          prev.forEach((m: ChatUiMessage) => map.set(m.id, m));
+          newAllMessages.forEach((m: ChatUiMessage) => map.set(m.id, m));
+          return Array.from(map.values());
+        });
+        setHasMore(data.hasMore ?? false);
+      }
+    } catch (e) {
+      console.error("ChatContext: Failed to load older messages:", e);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [activeSessionId, messages, hasMore, isLoadingMore]);
 
   return (
     <ChatContext.Provider
@@ -775,6 +834,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         switchBranch,
         editMessage,
         regenerateMessage,
+        hasMore,
+        isLoadingMore,
+        loadOlderMessages,
       }}
     >
       {children}

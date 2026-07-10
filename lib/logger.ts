@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 const colors = {
   DEBUG: "\x1b[36m",   // Cyan
   INFO: "\x1b[32m",    // Green
@@ -44,9 +43,13 @@ export function setupRequestLogInterceptor(): void {
 
   const originalWrite = process.stdout.write.bind(process.stdout);
   
-  process.stdout.write = (chunk: any, encoding?: any, callback?: any): boolean => {
+  process.stdout.write = (
+    chunk: string | Uint8Array,
+    encoding?: string | ((err?: Error | null) => void),
+    callback?: (err?: Error | null) => void
+  ): boolean => {
     try {
-      const str = typeof chunk === "string" ? chunk : chunk.toString("utf8");
+      const str = typeof chunk === "string" ? chunk : new TextDecoder("utf-8").decode(chunk);
       
       // Strip ANSI escape color codes to get raw text for reliable matching
       const cleanStr = str.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, "");
@@ -78,13 +81,18 @@ export function setupRequestLogInterceptor(): void {
         
         const formatted = `${color}[${level}]${RESET} [${timePart}] ${method} ${path} ${status} in ${time}${extraPart}\n`;
         
-        originalWrite(formatted, encoding, callback);
+        const writeEncoding = typeof encoding === "string" ? (encoding as BufferEncoding) : undefined;
+        const writeCallback = typeof encoding === "function" ? encoding : callback;
+        
+        originalWrite(formatted, writeEncoding, writeCallback);
         return true;
       }
     } catch {
       // Fallback to original write in case of parsing error
     }
-    return originalWrite(chunk, encoding, callback);
+    const writeEncoding = typeof encoding === "string" ? (encoding as BufferEncoding) : undefined;
+    const writeCallback = typeof encoding === "function" ? encoding : callback;
+    return originalWrite(chunk, writeEncoding, writeCallback);
   };
   
   isHooked = true;

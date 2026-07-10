@@ -7,6 +7,7 @@ import ChatEmpty from "./empty";
 import { ChatUiMessage } from "./types";
 import { useSettings } from "@/contexts/SettingsContext";
 import { useOllama } from "@/contexts/OllamaContext";
+import { useChatContext } from "@/contexts/ChatContext";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 
 export interface ChatViewProps {
@@ -43,6 +44,7 @@ export default function ChatView({
   errorToast = null,
   setErrorToast,
 }: Readonly<ChatViewProps>) {
+  const { hasMore, isLoadingMore, loadOlderMessages } = useChatContext();
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const isLockedRef = useRef<boolean>(true);
 
@@ -122,7 +124,7 @@ export default function ChatView({
     }
   }, [errorToast, setErrorToast]);
 
-  // Track user's manual scroll actions to toggle the auto-scroll lock
+  // Track user's manual scroll actions to toggle the auto-scroll lock and trigger pagination
   const handleScroll = () => {
     const container = scrollContainerRef.current;
     if (!container) return;
@@ -131,6 +133,19 @@ export default function ChatView({
     const isAtBottom =
       container.scrollHeight - container.scrollTop - container.clientHeight < 30;
     isLockedRef.current = isAtBottom;
+
+    // Trigger pagination when scrolling to top (within 50px of top)
+    if (container.scrollTop < 50 && hasMore && !isLoadingMore) {
+      const beforeHeight = container.scrollHeight;
+      loadOlderMessages().then(() => {
+        setTimeout(() => {
+          if (scrollContainerRef.current) {
+            const currentContainer = scrollContainerRef.current;
+            currentContainer.scrollTop = currentContainer.scrollHeight - beforeHeight;
+          }
+        }, 0);
+      });
+    }
   };
 
   // Auto-scroll to bottom of the message container when new messages arrive
@@ -448,6 +463,15 @@ export default function ChatView({
           >
             {/* Inner column keeps message content centered and readable */}
             <div className="w-full max-w-3xl mx-auto px-4">
+              {hasMore && (
+                <div className="flex justify-center items-center py-4 text-user-accent">
+                  {isLoadingMore ? (
+                    <span className="loading loading-spinner loading-sm"></span>
+                  ) : (
+                    <span className="text-xs text-base-content/40 italic">Scroll up to load older messages</span>
+                  )}
+                </div>
+              )}
               <MessageView
                 messages={messages}
                 isGenerating={isGenerating}

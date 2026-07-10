@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+import { Message } from "@prisma/client";
 import { getPrisma } from "../client";
 import { logger } from "../../logger";
 
@@ -31,7 +31,7 @@ export async function getMessages(sessionId: string): Promise<DbMessage[]> {
     orderBy: { timestamp: "asc" },
   });
 
-  const dbMessages: DbMessage[] = rows.map((m: any) => ({
+  const dbMessages: DbMessage[] = rows.map((m: Message) => ({
     id: m.id,
     sessionId: m.sessionId,
     role: m.role,
@@ -130,13 +130,50 @@ export async function saveMessage(
   logger.info(`Message saved [ID: ${id}, SessionID: ${sessionId}, Role: "${role}"]${meta}`);
 }
 
-export async function updateActiveMessage(sessionId: string, messageId: string | null): Promise<void> {
+export async function updateActiveMessage(
+  sessionId: string,
+  messageId: string | null,
+  leafWalk = false
+): Promise<void> {
   const prisma = getPrisma();
+  
+  let targetMessageId = messageId;
+  if (messageId && leafWalk) {
+    // 1. Fetch all messages in the session to construct the full tree
+    const allMsgs = await prisma.message.findMany({
+      where: { sessionId },
+      orderBy: { timestamp: "asc" },
+    });
+    
+    // 2. Map parentMessageId to children
+    const parentToChildren = new Map<string, DbMessage[]>();
+    (allMsgs as unknown as DbMessage[]).forEach((m: DbMessage) => {
+      if (m.parentMessageId) {
+        const children = parentToChildren.get(m.parentMessageId) || [];
+        children.push(m);
+        parentToChildren.set(m.parentMessageId, children);
+      }
+    });
+    
+    // 3. Walk down to the leaf node
+    let currentId = messageId;
+    while (true) {
+      const children = parentToChildren.get(currentId);
+      if (!children || children.length === 0) {
+        break; // Reached leaf
+      }
+      // Pick the latest child by timestamp
+      children.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+      currentId = children[0].id;
+    }
+    targetMessageId = currentId;
+  }
+
   await prisma.session.update({
     where: { id: sessionId },
-    data: { activeMessageId: messageId },
+    data: { activeMessageId: targetMessageId },
   });
-  logger.info(`Session active message updated [SessionID: ${sessionId}, ActiveMessageID: ${messageId}]`);
+  logger.info(`Session active message updated [SessionID: ${sessionId}, RequestedID: ${messageId}, ActiveMessageID: ${targetMessageId}]`);
 }
 
 export async function getAllSessionMessages(sessionId: string): Promise<DbMessage[]> {
@@ -145,7 +182,7 @@ export async function getAllSessionMessages(sessionId: string): Promise<DbMessag
     where: { sessionId },
     orderBy: { timestamp: "asc" },
   });
-  return rows.map((m: any) => ({
+  return rows.map((m: Message) => ({
     id: m.id,
     sessionId: m.sessionId,
     role: m.role,
@@ -156,6 +193,86 @@ export async function getAllSessionMessages(sessionId: string): Promise<DbMessag
     parentMessageId: m.parentMessageId || undefined,
     timestamp: m.timestamp,
   }));
+}
+
+export interface PaginatedMessagesResponse {
+  messages: DbMessage[];
+  allMessages: DbMessage[];
+  hasMore: boolean;
+}
+
+export async function getMessagesPaginated(
+  sessionId: string,
+  limit = 25,
+  cursorMessageId?: string
+): Promise<PaginatedMessagesResponse> {
+  // 1. Get the full active path
+  const fullActivePath = await getMessages(sessionId);
+
+  if (fullActivePath.length === 0) {
+    return { messages: [], allMessages: [], hasMore: false };
+  }
+
+  // 2. Locate cursor index
+  let cursorIndex = fullActivePath.length;
+  if (cursorMessageId) {
+    const idx = fullActivePath.findIndex((m) => m.id === cursorMessageId);
+    if (idx !== -1) {
+      cursorIndex = idx;
+    }
+  }
+
+  // 3. Slice the active path
+  const startIndex = Math.max(0, cursorIndex - limit);
+  const messagesSlice = fullActivePath.slice(startIndex, cursorIndex);
+  const hasMore = startIndex > 0;
+
+  // 4. Fetch siblings for messages in this slice to calculate version controls
+  const prisma = getPrisma();
+  const parentIds = Array.from(new Set(messagesSlice.map((m) => m.parentMessageId || null)));
+
+  let siblingRows: Message[] = [];
+  const stringParentIds = parentIds.filter((id): id is string => id !== null);
+  const hasNullParent = parentIds.includes(null);
+
+  if (stringParentIds.length > 0 || hasNullParent) {
+    siblingRows = await prisma.message.findMany({
+      where: {
+        sessionId,
+        OR: [
+          ...(stringParentIds.length > 0 ? [{ parentMessageId: { in: stringParentIds } }] : []),
+          ...(hasNullParent ? [{ parentMessageId: null }] : []),
+        ],
+      },
+    });
+  }
+
+  // Combine and deduplicate slice messages and siblings
+  const messageMap = new Map<string, DbMessage>();
+  
+  messagesSlice.forEach((m) => {
+    messageMap.set(m.id, m);
+  });
+
+  siblingRows.forEach((m: Message) => {
+    messageMap.set(m.id, {
+      id: m.id,
+      sessionId: m.sessionId,
+      role: m.role,
+      content: m.content,
+      modelName: m.modelName || undefined,
+      images: m.images || undefined,
+      generatedImages: m.generatedImages || undefined,
+      parentMessageId: m.parentMessageId || undefined,
+      timestamp: m.timestamp,
+    });
+  });
+
+  return {
+    messages: messagesSlice,
+    allMessages: Array.from(messageMap.values()),
+    hasMore,
+  };
 }
 
 

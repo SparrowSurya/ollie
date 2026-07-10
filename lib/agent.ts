@@ -497,7 +497,8 @@ export function streamAgentResponse(
   enabledTools?: string[],
   signal?: AbortSignal,
   nickname?: string,
-  aboutMe?: string
+  aboutMe?: string,
+  isRegenerate?: boolean
 ): ReadableStream {
   const encoder = new TextEncoder();
 
@@ -550,10 +551,18 @@ export function streamAgentResponse(
           { messages: langchainMessages }
         );
 
-        // 3. Save the *new* user message to the database
-        userMsgId = crypto.randomUUID();
-        const parentMessageId = dbMessages[dbMessages.length - 1]?.id || undefined;
-        await saveMessage(userMsgId, threadId, "user", message, undefined, images?.join(","), undefined, parentMessageId);
+        // 3. Save the *new* user message to the database (skip if regenerating)
+        if (isRegenerate) {
+          const lastDbMsg = dbMessages[dbMessages.length - 1];
+          if (!lastDbMsg || lastDbMsg.role !== "user") {
+            throw new Error("Cannot regenerate: last message in active path is not a user message");
+          }
+          userMsgId = lastDbMsg.id;
+        } else {
+          userMsgId = crypto.randomUUID();
+          const parentMessageId = dbMessages[dbMessages.length - 1]?.id || undefined;
+          await saveMessage(userMsgId, threadId, "user", message, undefined, images?.join(","), undefined, parentMessageId);
+        }
 
         // 4. Run the graph and listen to stream events
         const userMessageContent = await buildMessageContent(message, images);

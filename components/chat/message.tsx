@@ -46,7 +46,13 @@ export default function ChatMessage({
   // Find siblings of this message in the full message history to calculate branching
   const selfInHistory = id ? allMessages.find((m) => m.id === id) : null;
   const siblings = selfInHistory
-    ? allMessages.filter((m) => m.parentMessageId === selfInHistory.parentMessageId && m.role === role)
+    ? allMessages
+        .filter((m) => {
+          const mParent = m.parentMessageId || null;
+          const selfParent = selfInHistory.parentMessageId || null;
+          return mParent === selfParent && m.role === role;
+        })
+        .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
     : [];
   const hasBranches = siblings.length > 1;
   const activeBranchIndex = siblings.findIndex((m) => m.id === id);
