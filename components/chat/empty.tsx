@@ -13,14 +13,14 @@ export default function ChatEmpty() {
     const hours = new Date().getHours();
     const nickname = typeof window !== "undefined" ? localStorage.getItem("ollie-nickname") : null;
     const nameSuffix = nickname && nickname.trim() ? `, ${nickname.trim()}` : "";
-    let timeGreeting = `Hello${nameSuffix}.`;
+    let timeGreeting = `Hello${nameSuffix}`;
 
     if (hours < 12) {
-      timeGreeting = `Good morning${nameSuffix}.`;
+      timeGreeting = `Good morning${nameSuffix}`;
     } else if (hours < 17) {
-      timeGreeting = `Good afternoon${nameSuffix}.`;
+      timeGreeting = `Good afternoon${nameSuffix}`;
     } else {
-      timeGreeting = `Good evening${nameSuffix}.`;
+      timeGreeting = `Good evening${nameSuffix}`;
     }
 
     const timer = setTimeout(() => {
@@ -32,7 +32,7 @@ export default function ChatEmpty() {
 
   return (
     <div className="flex flex-col items-center justify-center py-20 select-none animate-fade-in">
-      <h1 className="text-4xl md:text-5xl font-bold text-base-content/90 font-sans tracking-tight">
+      <h1 className="text-4xl md:text-5xl font-bold text-base-content/90 font-sans tracking-tight text-center px-4">
         {greeting}
       </h1>
     </div>

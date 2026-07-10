@@ -11,6 +11,7 @@ model Session {
   title              String
   model              String
   customInstructions String?     @map("custom_instructions")
+  activeMessageId    String?     @map("active_message_id")
   createdAt          DateTime    @default(now()) @map("created_at")
   updatedAt          DateTime    @updatedAt @map("updated_at")
   messages           Message[]
@@ -27,6 +28,7 @@ model Message {
   images          String?  // Comma-separated
   generatedImages String?  @map("generated_images") // Comma-separated
   modelName       String?  @map("model_name")
+  parentMessageId String?  @map("parent_message_id")
   timestamp       DateTime @default(now())
   session         Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 

@@ -22,6 +22,7 @@ export interface DbMessageResponse {
   modelName?: string;
   images?: string;
   generatedImages?: string;
+  parentMessageId?: string;
   timestamp: string | Date;
 }
 
@@ -32,6 +33,7 @@ export interface ToolInfo {
 
 export interface ChatContextType {
   messages: ChatUiMessage[];
+  allMessages: ChatUiMessage[];
   isGenerating: boolean;
   isBootstrapping: boolean;
   isModelLoaded: boolean;
@@ -45,7 +47,7 @@ export interface ChatContextType {
     customInstructions?: string,
     mcpServers?: { name: string; url: string }[]
   ) => Promise<void>;
-  sendMessage: (text: string, imageFiles?: File[]) => Promise<void>;
+  sendMessage: (text: string, imageFiles?: File[], existingImages?: string[]) => Promise<void>;
   stopGeneration: () => void;
   setActiveModel: (model: string) => void;
   errorToast: string | null;
@@ -61,6 +63,9 @@ export interface ChatContextType {
   availableTools: ToolInfo[];
   activeTools: string[];
   toggleTool: (name: string) => void;
+  switchBranch: (messageId: string) => Promise<void>;
+  editMessage: (messageId: string, newText: string) => Promise<void>;
+  regenerateMessage: (assistantMessageId: string) => Promise<void>;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -84,6 +89,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const { customInstructions } = useSettings();
 
   const [messages, setMessages] = useState<ChatUiMessage[]>([]);
+  const [allMessages, setAllMessages] = useState<ChatUiMessage[]>([]);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [isBootstrapping, setIsBootstrapping] = useState<boolean>(false);
   const [isModelLoaded, setIsModelLoaded] = useState<boolean>(false);
@@ -211,6 +217,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         setActiveSessionId(newUuid);
         loadedSessionIdRef.current = newUuid;
         setMessages([]);
+        setAllMessages([]);
 
         if (isStartingImageChatRef.current) {
           setIsModelLoaded(true);
@@ -235,17 +242,18 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
           const response = await fetch(`/api/sessions/messages?id=${activeSessionId}`);
           if (response.ok) {
             const data = await response.json();
-            setMessages(
-              (data.messages || []).map((m: DbMessageResponse) => ({
-                id: m.id,
-                role: m.role,
-                content: m.content,
-                timestamp: new Date(m.timestamp),
-                modelName: m.modelName || undefined,
-                images: m.images ? m.images.split(",") : undefined,
-                generatedImages: m.generatedImages ? m.generatedImages.split(",") : undefined,
-              }))
-            );
+            const mapMsg = (m: DbMessageResponse) => ({
+              id: m.id,
+              role: m.role,
+              content: m.content,
+              timestamp: new Date(m.timestamp),
+              modelName: m.modelName || undefined,
+              images: m.images ? m.images.split(",") : undefined,
+              generatedImages: m.generatedImages ? m.generatedImages.split(",") : undefined,
+              parentMessageId: m.parentMessageId || undefined,
+            });
+            setMessages((data.messages || []).map(mapMsg));
+            setAllMessages((data.allMessages || []).map(mapMsg));
             if (data.model) {
               setActiveModel(data.model);
             }
@@ -254,11 +262,13 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
           } else {
             // Session not found in DB, treat as a fresh chat session with this ID
             setMessages([]);
+            setAllMessages([]);
             setIsModelLoaded(false);
           }
         } catch (e) {
           console.error("ChatContext: Failed to load session messages:", e);
           setMessages([]);
+          setAllMessages([]);
           setIsModelLoaded(false);
         }
       };
@@ -398,7 +408,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   );
 
   const sendMessage = useCallback(
-    async (text: string, imageFiles?: File[]) => {
+    async (text: string, imageFiles?: File[], existingImages?: string[]) => {
       if (isGenerating || isBootstrapping || !isModelLoaded) return;
 
       setIsGenerating(true);
@@ -435,8 +445,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
           id: crypto.randomUUID(),
           role: "user",
           content: text,
-          images: uploadedUrls.length > 0 ? uploadedUrls : undefined,
+          images: uploadedUrls.length > 0 ? uploadedUrls : existingImages,
           timestamp: new Date(),
+          parentMessageId: messages[messages.length - 1]?.id || undefined,
         };
 
         const assistantMessagePlaceholder: ChatUiMessage = {
@@ -445,10 +456,12 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
           content: "",
           timestamp: new Date(),
           modelName: activeModel,
+          parentMessageId: userMessage.id,
         };
 
         // Add user message and assistant placeholder message to state
         setMessages((prev) => [...prev, userMessage, assistantMessagePlaceholder]);
+        setAllMessages((prev) => [...prev, userMessage, assistantMessagePlaceholder]);
 
         // If we are on /chat, redirect to /chat/[activeSessionId] on first message submission
         if (!urlSessionId) {
@@ -488,7 +501,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         const contentType = response.headers.get("Content-Type") || "";
         if (contentType.includes("application/json")) {
           const data = await response.json();
-          setMessages((prev) =>
+          const updateMsgs = (prev: ChatUiMessage[]) =>
             prev.map((msg) => {
               if (msg.id === assistantMessageId) {
                 return {
@@ -498,8 +511,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
                 };
               }
               return msg;
-            })
-          );
+            });
+          setMessages(updateMsgs);
+          setAllMessages(updateMsgs);
         } else {
           if (!response.body) {
             throw new Error("Response body is unreadable");
@@ -513,7 +527,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             if (done) break;
 
             const chunk = decoder.decode(value, { stream: true });
-            setMessages((prev) =>
+            const updateMsgs = (prev: ChatUiMessage[]) =>
               prev.map((msg) => {
                 if (msg.id === assistantMessageId) {
                   return {
@@ -522,8 +536,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
                   };
                 }
                 return msg;
-              })
-            );
+              });
+            setMessages(updateMsgs);
+            setAllMessages(updateMsgs);
           }
         }
 
@@ -535,17 +550,18 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
           const syncRes = await fetch(`/api/sessions/messages?id=${activeSessionId}`);
           if (syncRes.ok) {
             const syncData = await syncRes.json();
-            setMessages(
-              (syncData.messages || []).map((m: DbMessageResponse) => ({
-                id: m.id,
-                role: m.role,
-                content: m.content,
-                timestamp: new Date(m.timestamp),
-                modelName: m.modelName || undefined,
-                images: m.images ? m.images.split(",") : undefined,
-                generatedImages: m.generatedImages ? m.generatedImages.split(",") : undefined,
-              }))
-            );
+            const mapMsg = (m: DbMessageResponse) => ({
+              id: m.id,
+              role: m.role,
+              content: m.content,
+              timestamp: new Date(m.timestamp),
+              modelName: m.modelName || undefined,
+              images: m.images ? m.images.split(",") : undefined,
+              generatedImages: m.generatedImages ? m.generatedImages.split(",") : undefined,
+              parentMessageId: m.parentMessageId || undefined,
+            });
+            setMessages((syncData.messages || []).map(mapMsg));
+            setAllMessages((syncData.allMessages || []).map(mapMsg));
           }
         } catch (syncErr) {
           console.error("Failed to sync message state after stream complete:", syncErr);
@@ -560,7 +576,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
           console.error("Streaming error:", error);
           const errMsg = error.message || "Failed to stream response from the server.";
           setErrorToast(errMsg);
-          setMessages((prev) =>
+          const updateMsgs = (prev: ChatUiMessage[]) =>
             prev.map((msg) => {
               if (msg.id === assistantMessageId) {
                 return {
@@ -569,15 +585,16 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
                 };
               }
               return msg;
-            })
-          );
+            });
+          setMessages(updateMsgs);
+          setAllMessages(updateMsgs);
         }
       } finally {
         setIsGenerating(false);
         abortControllerRef.current = null;
       }
     },
-    [isGenerating, isBootstrapping, isModelLoaded, activeModel, activeSessionId, customInstructions, fetchSessions, urlSessionId, router, defaultImageModel, activeTools]
+    [isGenerating, isBootstrapping, isModelLoaded, messages, activeModel, urlSessionId, fetchSessions, activeSessionId, defaultImageModel, customInstructions, activeTools, router]
   );
 
   const changeActiveModel = useCallback(async (modelName: string) => {
@@ -601,10 +618,136 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     }
   }, [activeSessionId, fetchSessions, setActiveModel]);
 
+  const switchBranch = useCallback(async (messageId: string) => {
+    // 1. Walk forward from messageId to find the leaf node of this branch
+    let currentId = messageId;
+    
+    // Map parentMessageId to children messages
+    const parentToChildren = new Map<string, ChatUiMessage[]>();
+    allMessages.forEach((m) => {
+      if (m.parentMessageId) {
+        const children = parentToChildren.get(m.parentMessageId) || [];
+        children.push(m);
+        parentToChildren.set(m.parentMessageId, children);
+      }
+    });
+
+    // Walk down to the leaf node
+    while (true) {
+      const children = parentToChildren.get(currentId);
+      if (!children || children.length === 0) {
+        break; // Reached leaf
+      }
+      // If there are multiple children (sub-branches), pick the one with the latest timestamp
+      children.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      currentId = children[0].id;
+    }
+
+    const response = await fetch("/api/sessions/messages", {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        sessionId: activeSessionId,
+        activeMessageId: currentId,
+      }),
+    });
+
+    if (!response.ok) {
+      setErrorToast("Failed to switch branch.");
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/sessions/messages?id=${activeSessionId}`);
+      if (res.ok) {
+        const data = await res.json();
+        const mapMsg = (m: DbMessageResponse) => ({
+          id: m.id,
+          role: m.role,
+          content: m.content,
+          timestamp: new Date(m.timestamp),
+          modelName: m.modelName || undefined,
+          images: m.images ? m.images.split(",") : undefined,
+          generatedImages: m.generatedImages ? m.generatedImages.split(",") : undefined,
+          parentMessageId: m.parentMessageId || undefined,
+        });
+        setMessages((data.messages || []).map(mapMsg));
+        setAllMessages((data.allMessages || []).map(mapMsg));
+      }
+    } catch (e) {
+      console.error("ChatContext: Failed to reload messages after branch switch:", e);
+    }
+  }, [activeSessionId, allMessages]);
+
+  const editMessage = useCallback(async (messageId: string, newText: string) => {
+    const msg = allMessages.find((m) => m.id === messageId);
+    if (!msg) return;
+
+    const parentId = msg.parentMessageId || "";
+
+    const branchRes = await fetch("/api/sessions/messages", {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        sessionId: activeSessionId,
+        activeMessageId: parentId || null,
+      }),
+    });
+
+    if (!branchRes.ok) {
+      setErrorToast("Failed to switch branch context for editing.");
+      return;
+    }
+
+    const msgIndex = messages.findIndex((m) => m.id === messageId);
+    const parentPath = msgIndex >= 0 ? messages.slice(0, msgIndex) : [];
+    setMessages(parentPath);
+    setAllMessages(parentPath);
+
+    await sendMessage(newText, undefined, msg.images);
+  }, [messages, allMessages, activeSessionId, sendMessage]);
+
+  const regenerateMessage = useCallback(async (assistantMessageId: string) => {
+    const msgIndex = messages.findIndex((m) => m.id === assistantMessageId);
+    if (msgIndex <= 0) return;
+
+    const userPrompt = messages[msgIndex - 1];
+    if (userPrompt.role !== "user") return;
+
+    const parentId = userPrompt.parentMessageId || "";
+
+    const branchRes = await fetch("/api/sessions/messages", {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        sessionId: activeSessionId,
+        activeMessageId: parentId || null,
+      }),
+    });
+
+    if (!branchRes.ok) {
+      setErrorToast("Failed to switch branch context for regeneration.");
+      return;
+    }
+
+    const parentPath = messages.slice(0, msgIndex - 1);
+    setMessages(parentPath);
+    setAllMessages(parentPath);
+
+    await sendMessage(userPrompt.content, undefined, userPrompt.images);
+  }, [messages, activeSessionId, sendMessage]);
+
   return (
     <ChatContext.Provider
       value={{
         messages,
+        allMessages,
         isGenerating,
         isBootstrapping,
         isModelLoaded,
@@ -629,6 +772,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         availableTools,
         activeTools,
         toggleTool,
+        switchBranch,
+        editMessage,
+        regenerateMessage,
       }}
     >
       {children}

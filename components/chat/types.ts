@@ -8,4 +8,6 @@ export interface ChatUiMessage {
   modelName?: string;
   images?: string[];
   generatedImages?: string[];
+  parentMessageId?: string;
 }
+

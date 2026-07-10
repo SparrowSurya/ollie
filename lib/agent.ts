@@ -505,6 +505,7 @@ export function streamAgentResponse(
     async start(controller) {
       let targetModel = "";
       let assistantContent = "";
+      let userMsgId = "";
       try {
         targetModel = modelName || (await getDefaultModel());
         logger.info(`Starting agent response stream [SessionID: "${threadId}", Model: "${targetModel}", CustomInstructionsLength: ${customInstructions?.length ?? 0}, InputImagesCount: ${images?.length ?? 0}]`);
@@ -550,8 +551,9 @@ export function streamAgentResponse(
         );
 
         // 3. Save the *new* user message to the database
-        const userMsgId = crypto.randomUUID();
-        await saveMessage(userMsgId, threadId, "user", message, undefined, images?.join(","));
+        userMsgId = crypto.randomUUID();
+        const parentMessageId = dbMessages[dbMessages.length - 1]?.id || undefined;
+        await saveMessage(userMsgId, threadId, "user", message, undefined, images?.join(","), undefined, parentMessageId);
 
         // 4. Run the graph and listen to stream events
         const userMessageContent = await buildMessageContent(message, images);
@@ -665,7 +667,8 @@ export function streamAgentResponse(
           assistantContent,
           targetModel,
           undefined,
-          generatedImagesString
+          generatedImagesString,
+          userMsgId
         );
 
         // 6. Auto-generate title if this is the first message in this session
@@ -691,7 +694,8 @@ export function streamAgentResponse(
               assistantContent,
               targetModel,
               undefined,
-              undefined
+              undefined,
+              userMsgId
             ).catch((saveErr) => {
               logger.error("Failed to save interrupted response on server:", saveErr);
             });

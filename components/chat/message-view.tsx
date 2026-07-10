@@ -30,7 +30,7 @@ export default function MessageView({
     <div className="flex flex-col w-full gap-2 px-1 py-4">
       {messages.map((msg, index) => {
         const isLast = index === messages.length - 1;
-        
+
         // Show "generating" status only for the last message if it's assistant and currently empty
         const isGeneratingPlaceholder =
           isGenerating &&
@@ -40,7 +40,8 @@ export default function MessageView({
 
         return (
           <ChatMessage
-            key={index}
+            key={`IDM-${msg.id}` || `IDX-${index}`}
+            id={msg.id}
             role={msg.role}
             content={msg.content}
             pendingStatus={isGeneratingPlaceholder ? "generating" : undefined}

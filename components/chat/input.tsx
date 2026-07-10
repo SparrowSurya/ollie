@@ -45,7 +45,15 @@ export default function ChatInput({
     activeTools,
     toggleTool,
     activeSessionId,
+    messages,
   } = useChatContext();
+
+  // Automatically focus input on starting a new chat
+  useEffect(() => {
+    if (messages.length === 0) {
+      textareaRef.current?.focus();
+    }
+  }, [activeSessionId, messages.length]);
 
   const [mcpCount, setMcpCount] = useState<number>(0);
 
@@ -66,8 +74,6 @@ export default function ChatInput({
       }
     };
     fetchCount();
-    const interval = setInterval(fetchCount, 5000);
-    return () => clearInterval(interval);
   }, [activeSessionId]);
 
   const isImageModel = imageModels.includes(activeModel);

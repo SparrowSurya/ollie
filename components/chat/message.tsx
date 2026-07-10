@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { MessageRole } from "./types";
+import { useChatContext } from "@/contexts/ChatContext";
 import { parseResponseParts } from "@/lib/markdown";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
 import { SafeImage } from "./image-placeholders";
 import Image from "next/image";
 
 export interface ChatMessageProps {
+  id?: string;
   role: MessageRole;
   content: string;
   pendingStatus?: "loading" | "generating";
@@ -15,6 +17,7 @@ export interface ChatMessageProps {
 }
 
 export default function ChatMessage({
+  id,
   role,
   content,
   pendingStatus,
@@ -22,11 +25,43 @@ export default function ChatMessage({
   images,
   generatedImages,
 }: Readonly<ChatMessageProps>) {
+  const { allMessages, switchBranch, editMessage, regenerateMessage } = useChatContext();
+
   const isUser = role === "user";
   const displayImages = images || generatedImages;
   const [activeImageIndex, setActiveImageIndex] = useState<number | null>(null);
   const [copiedPrompt, setCopiedPrompt] = useState(false);
   const [copiedResponse, setCopiedResponse] = useState(false);
+
+  // Edit mode states
+  const [isEditing, setIsEditing] = useState(false);
+  const [prevContent, setPrevContent] = useState(content);
+  const [editText, setEditText] = useState(content);
+
+  if (content !== prevContent) {
+    setPrevContent(content);
+    setEditText(content);
+  }
+
+  // Find siblings of this message in the full message history to calculate branching
+  const selfInHistory = id ? allMessages.find((m) => m.id === id) : null;
+  const siblings = selfInHistory
+    ? allMessages.filter((m) => m.parentMessageId === selfInHistory.parentMessageId && m.role === role)
+    : [];
+  const hasBranches = siblings.length > 1;
+  const activeBranchIndex = siblings.findIndex((m) => m.id === id);
+
+  const handlePrevBranch = () => {
+    if (activeBranchIndex > 0 && id) {
+      switchBranch(siblings[activeBranchIndex - 1].id);
+    }
+  };
+
+  const handleNextBranch = () => {
+    if (activeBranchIndex < siblings.length - 1 && id) {
+      switchBranch(siblings[activeBranchIndex + 1].id);
+    }
+  };
 
   const handleCopyPrompt = () => {
     navigator.clipboard.writeText(content).then(() => {
@@ -145,38 +180,99 @@ export default function ChatMessage({
               ))}
             </div>
           )}
-          <div className="glass-card text-base-content max-w-[70%] px-4 py-3 rounded-2xl rounded-tr-xs shadow-md text-base font-sans whitespace-pre-wrap">
-            {content}
-          </div>
-          <div className="flex items-center gap-2 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity select-none duration-200">
-            <button
-              onClick={handleCopyPrompt}
-              className="btn btn-square btn-xs bg-base-100 hover:bg-base-200 border border-base-content/15 hover:border-user-accent shadow-xs flex items-center justify-center transition-colors duration-200"
-              title={copiedPrompt ? "Copied!" : "Copy prompt"}
-              aria-label={copiedPrompt ? "Copied!" : "Copy prompt"}
-            >
-              <Image
-                src={copiedPrompt ? "/icons/check.svg" : "/icons/copy.svg"}
-                className={`w-3.25 h-3.25 pointer-events-none ${copiedPrompt ? "action-btn-img-success" : "action-btn-img"}`}
-                alt="Copy"
-                width={13}
-                height={13}
+          {isEditing ? (
+            <div className="flex flex-col gap-2 w-full max-w-[70%] items-end">
+              <textarea
+                value={editText}
+                onChange={(e) => setEditText(e.target.value)}
+                className="textarea textarea-bordered w-full text-base font-sans p-3 bg-base-200 border-base-content/20 rounded-2xl focus:outline-hidden focus:border-user-accent min-h-20"
               />
-            </button>
-            <button
-              className="btn btn-square btn-xs bg-base-100 hover:bg-base-200 border border-base-content/15 hover:border-user-accent shadow-xs flex items-center justify-center cursor-not-allowed transition-colors duration-200"
-              title="Edit prompt"
-              aria-label="Edit prompt"
-            >
-              <Image
-                src="/icons/edit.svg"
-                className="w-3.25 h-3.25 pointer-events-none action-btn-img"
-                alt="Edit"
-                width={13}
-                height={13}
-              />
-            </button>
-          </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    setIsEditing(false);
+                    setEditText(content);
+                  }}
+                  className="btn btn-xs rounded-full px-3 py-1 bg-base-300 hover:bg-base-200 border border-base-content/15 text-base-content"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    if (editText.trim() && editText !== content && id) {
+                      setIsEditing(false);
+                      await editMessage(id, editText);
+                    }
+                  }}
+                  className="btn btn-xs btn-outline rounded-full px-3 py-1 border border-user-accent text-user-accent hover:bg-user-accent hover:text-white transition-colors duration-200 shadow-sm"
+                >
+                  Submit
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="glass-card text-base-content max-w-[70%] px-4 py-3 rounded-2xl rounded-tr-xs shadow-md text-base font-sans whitespace-pre-wrap">
+              {content}
+            </div>
+          )}
+
+          {/* Version switcher */}
+          {!isEditing && hasBranches && (
+            <div className="flex items-center gap-1.5 text-xs text-base-content/50 mt-1 select-none">
+              <button
+                onClick={handlePrevBranch}
+                disabled={activeBranchIndex === 0}
+                className="btn btn-ghost btn-xs btn-circle h-5 w-5 min-h-0 disabled:opacity-30 disabled:hover:bg-transparent"
+                title="Previous version"
+              >
+                <ChevronLeft size={12} />
+              </button>
+              <span>
+                {activeBranchIndex + 1} / {siblings.length}
+              </span>
+              <button
+                onClick={handleNextBranch}
+                disabled={activeBranchIndex === siblings.length - 1}
+                className="btn btn-ghost btn-xs btn-circle h-5 w-5 min-h-0 disabled:opacity-30 disabled:hover:bg-transparent"
+                title="Next version"
+              >
+                <ChevronRight size={12} />
+              </button>
+            </div>
+          )}
+
+          {!isEditing && !pendingStatus && (
+            <div className="flex items-center gap-2 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity select-none duration-200">
+              <button
+                onClick={handleCopyPrompt}
+                className="btn btn-square btn-xs bg-base-100 hover:bg-base-200 border border-base-content/15 hover:border-user-accent shadow-xs flex items-center justify-center transition-colors duration-200"
+                title={copiedPrompt ? "Copied!" : "Copy prompt"}
+                aria-label={copiedPrompt ? "Copied!" : "Copy prompt"}
+              >
+                <Image
+                  src={copiedPrompt ? "/icons/check.svg" : "/icons/copy.svg"}
+                  className={`w-3.25 h-3.25 pointer-events-none ${copiedPrompt ? "action-btn-img-success" : "action-btn-img"}`}
+                  alt="Copy"
+                  width={13}
+                  height={13}
+                />
+              </button>
+              <button
+                onClick={() => setIsEditing(true)}
+                className="btn btn-square btn-xs bg-base-100 hover:bg-base-200 border border-base-content/15 hover:border-user-accent shadow-xs flex items-center justify-center transition-colors duration-200"
+                title="Edit prompt"
+                aria-label="Edit prompt"
+              >
+                <Image
+                  src="/icons/edit.svg"
+                  className="w-3.25 h-3.25 pointer-events-none action-btn-img"
+                  alt="Edit"
+                  width={13}
+                  height={13}
+                />
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Lightbox full screen image modal */}
@@ -282,6 +378,31 @@ export default function ChatMessage({
           />
         )}
 
+        {/* Version switcher */}
+        {hasBranches && (
+          <div className="flex items-center gap-1.5 text-xs text-base-content/50 mt-2 select-none w-fit">
+            <button
+              onClick={handlePrevBranch}
+              disabled={activeBranchIndex === 0}
+              className="btn btn-ghost btn-xs btn-circle h-5 w-5 min-h-0 disabled:opacity-30 disabled:hover:bg-transparent"
+              title="Previous version"
+            >
+              <ChevronLeft size={12} />
+            </button>
+            <span>
+              {activeBranchIndex + 1} / {siblings.length}
+            </span>
+            <button
+              onClick={handleNextBranch}
+              disabled={activeBranchIndex === siblings.length - 1}
+              className="btn btn-ghost btn-xs btn-circle h-5 w-5 min-h-0 disabled:opacity-30 disabled:hover:bg-transparent"
+              title="Next version"
+            >
+              <ChevronRight size={12} />
+            </button>
+          </div>
+        )}
+
         {displayImages && displayImages.length > 0 && (
           <div className="mt-3 select-none w-full">
             {displayImages.length === 1 ? (
@@ -339,9 +460,11 @@ export default function ChatMessage({
               />
             </button>
             <button
-              className="btn btn-square btn-xs bg-base-100 hover:bg-base-200 border border-base-content/15 hover:border-user-accent shadow-xs flex items-center justify-center cursor-not-allowed transition-colors duration-200"
+              onClick={() => id && regenerateMessage(id)}
+              className="btn btn-square btn-xs bg-base-100 hover:bg-base-200 border border-base-content/15 hover:border-user-accent shadow-xs flex items-center justify-center transition-colors duration-200"
               title="Regenerate response"
               aria-label="Regenerate response"
+              disabled={!id}
             >
               <Image
                 src="/icons/regenerate.svg"
