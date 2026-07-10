@@ -69,6 +69,7 @@ export interface ChatContextType {
   hasMore: boolean;
   isLoadingMore: boolean;
   loadOlderMessages: () => Promise<void>;
+  branchToNewChat: (messageId: string) => Promise<void>;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -802,6 +803,37 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     }
   }, [activeSessionId, messages, hasMore, isLoadingMore]);
 
+  const branchToNewChat = useCallback(async (messageId: string) => {
+    try {
+      const response = await fetch("/api/sessions/branch", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          sessionId: activeSessionId,
+          messageId,
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        setErrorToast(data.error || "Failed to branch session");
+        return;
+      }
+
+      const data = await response.json();
+      if (data.newSessionId) {
+        await fetchSessions();
+        switchSession(data.newSessionId);
+        router.push(`/chat/${data.newSessionId}`);
+      }
+    } catch (e) {
+      console.error("ChatContext: Failed to branch to new chat:", e);
+      setErrorToast("An error occurred while branching conversation.");
+    }
+  }, [activeSessionId, fetchSessions, switchSession, router]);
+
   return (
     <ChatContext.Provider
       value={{
@@ -837,6 +869,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         hasMore,
         isLoadingMore,
         loadOlderMessages,
+        branchToNewChat,
       }}
     >
       {children}

@@ -25,7 +25,7 @@ export default function ChatMessage({
   images,
   generatedImages,
 }: Readonly<ChatMessageProps>) {
-  const { allMessages, switchBranch, editMessage, regenerateMessage } = useChatContext();
+  const { allMessages, switchBranch, editMessage, regenerateMessage, branchToNewChat } = useChatContext();
 
   const isUser = role === "user";
   const displayImages = images || generatedImages;
@@ -481,9 +481,11 @@ export default function ChatMessage({
               />
             </button>
             <button
-              className="btn btn-square btn-xs bg-base-100 hover:bg-base-200 border border-base-content/15 hover:border-user-accent shadow-xs flex items-center justify-center cursor-not-allowed transition-colors duration-200"
+              onClick={() => id && branchToNewChat(id)}
+              className="btn btn-square btn-xs bg-base-100 hover:bg-base-200 border border-base-content/15 hover:border-user-accent shadow-xs flex items-center justify-center transition-colors duration-200"
               title="Branch to new chat"
               aria-label="Branch to new chat"
+              disabled={!id}
             >
               <Image
                 src="/icons/branch.svg"
