@@ -51,7 +51,7 @@ export default function SettingsDialog({ isOpen, onClose }: Readonly<SettingsDia
     >
       <div
         ref={modalRef}
-        className="glass-card text-base-content rounded-2xl w-full max-w-4xl h-110 max-h-[90vh] shadow-2xl p-6 overflow-hidden flex flex-col select-none relative"
+        className="glass-card text-base-content rounded-2xl w-full max-w-4xl h-[80vh] shadow-2xl p-6 overflow-hidden flex flex-col select-none relative"
         style={{ backgroundColor: "color-mix(in srgb, var(--color-base-200) 80%, transparent)" }}
       >
         {/* Header: Title is always left-aligned, close button is on the right */}
