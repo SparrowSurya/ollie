@@ -3,13 +3,23 @@ import { z } from "zod";
 import { logger } from "../logger";
 
 export const curlTool = tool(
-  async ({ url, method = "GET", headers = {}, body }, config) => {
+  async ({ url, method = "GET", headers, body }, config) => {
     const threadId = config.configurable?.thread_id ?? "default-session";
     try {
       logger.info(`Tool "curl" execution start (Session: "${threadId}", URL: "${url}", Method: "${method}")`);
+      
+      let parsedHeaders: Record<string, string> = {};
+      if (headers) {
+        try {
+          parsedHeaders = JSON.parse(headers);
+        } catch (err) {
+          logger.warning(`Failed to parse headers JSON string in curl tool: ${headers}. Error: ${err}`);
+        }
+      }
+
       const response = await fetch(url, {
         method,
-        headers: headers as Record<string, string>,
+        headers: parsedHeaders,
         body: body ? body : undefined,
       });
 
@@ -37,7 +47,7 @@ export const curlTool = tool(
         .optional()
         .default("GET")
         .describe("The HTTP method to use (default: GET)"),
-      headers: z.record(z.string(), z.string()).optional().describe("Optional HTTP request headers as key-value pairs"),
+      headers: z.string().optional().describe("Optional HTTP request headers as a JSON string of key-value pairs (e.g. '{\"Authorization\": \"Bearer token\"}')"),
       body: z.string().optional().describe("Optional HTTP request body payload"),
     }),
   }

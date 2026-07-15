@@ -172,7 +172,7 @@ export default function SessionTab() {
             className="select select-bordered select-sm w-full sm:w-48 bg-base-200 font-sans cursor-pointer focus:outline-hidden text-base h-9 px-3"
           >
             {runnableModels.length === 0 ? (
-              <option value="">No models installed</option>
+              <option value="" className="bg-base-200 text-base-content">No models installed</option>
             ) : (
               runnableModels.map((m) => {
                 const isDisabled = disabledModels?.includes(m);
@@ -181,7 +181,7 @@ export default function SessionTab() {
                 const displayName = isRemote ? `${rawName.replace(/-/g, " ").toUpperCase()} (${provider.toUpperCase()})` : m;
 
                 return (
-                  <option key={m} value={m} disabled={isDisabled}>
+                  <option key={m} value={m} disabled={isDisabled} className="bg-base-200 text-base-content">
                     {displayName} {isDisabled ? " (API Key Missing)" : ""}
                   </option>
                 );

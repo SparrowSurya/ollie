@@ -54,7 +54,7 @@ export default function ChatView({
   const [activeReplyText, setActiveReplyText] = useState<string | null>(null);
 
   const { customInstructions, setCustomInstructions } = useSettings();
-  const { imageModels } = useOllama();
+  const { imageModels, disabledModels } = useOllama();
 
   const [selectedModel, setSelectedModel] = useState<string>("");
   const [useAsDefault, setUseAsDefault] = useState<boolean>(true);
@@ -332,13 +332,20 @@ export default function ChatView({
               className="select select-bordered select-sm w-full bg-base-200 border-user-accent/30 focus:border-user-accent focus:ring-user-accent/30 focus:outline-hidden cursor-pointer text-base h-9 px-3"
             >
               {runnableModels.length === 0 ? (
-                <option value="">No models installed</option>
+                <option value="" className="bg-base-200 text-base-content">No models installed</option>
               ) : (
-                runnableModels.map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))
+                runnableModels.map((m) => {
+                  const isDisabled = disabledModels?.includes(m);
+                  const isRemote = m.includes("/");
+                  const [provider, rawName] = isRemote ? m.split("/") : ["ollama", m];
+                  const displayName = isRemote ? `${rawName.replace(/-/g, " ").toUpperCase()} (${provider.toUpperCase()})` : m;
+
+                  return (
+                    <option key={m} value={m} disabled={isDisabled} className="bg-base-200 text-base-content">
+                      {displayName} {isDisabled ? " (API Key Missing)" : ""}
+                    </option>
+                  );
+                })
               )}
             </select>
           </div>

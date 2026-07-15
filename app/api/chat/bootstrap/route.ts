@@ -30,7 +30,9 @@ export async function POST(req: Request) {
     }
 
     // 3. Call bootstrapModel from lib/agent.ts which blocks until loaded
-    await bootstrapModel(threadId, targetModel);
+    if (!targetModel.includes("/")) {
+      await bootstrapModel(threadId, targetModel);
+    }
 
     return NextResponse.json({ success: true, status: "ready" });
   } catch (error) {

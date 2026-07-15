@@ -283,6 +283,7 @@ export default function ChatInput({
               <ul
                 tabIndex={0}
                 className="dropdown-content menu p-1.5 shadow-xl glass-card rounded-xl w-52 text-[11px] font-mono font-bold text-base-content/85 z-50 mb-1.5"
+                style={{ backgroundColor: "color-mix(in srgb, var(--color-base-200) 98%, transparent)" }}
               >
                 {runnableModels.map((m) => {
                   const isDisabled = disabledModels?.includes(m);
@@ -303,17 +304,13 @@ export default function ChatInput({
                           }
                         }}
                         className={`px-2.5 py-1.5 rounded-lg text-left w-full flex items-center justify-between gap-1.5 ${
-                          isDisabled ? "opacity-35 cursor-not-allowed line-through" : "hover:bg-base-content/10 hover:text-base-content"
+                          isDisabled ? "opacity-35 cursor-not-allowed" : "hover:bg-base-content/10 hover:text-base-content"
                         } ${
                           m === activeModel ? "bg-user-accent/10 text-user-accent" : ""
                         }`}
                       >
-                        <span className="truncate max-w-30">{displayName}</span>
-                        {isDisabled ? (
-                          <span className="badge badge-warning scale-75 text-[7px] font-sans border-none px-1 py-0.5 rounded-xs shrink-0 select-none">
-                            MISSING
-                          </span>
-                        ) : isRemote ? (
+                        <span className={`truncate max-w-30 ${isDisabled && "line-through"}`}>{displayName}</span>
+                        {isRemote && (
                           <span className={`badge badge-xs text-[7.5px] scale-90 border-none font-bold px-1 py-0.5 rounded-xs select-none shrink-0 ${
                             provider === "openai" ? "bg-emerald-500/10 text-emerald-400" :
                             provider === "anthropic" ? "bg-amber-500/10 text-amber-400" :
@@ -321,7 +318,7 @@ export default function ChatInput({
                           }`}>
                             {provider.toUpperCase()}
                           </span>
-                        ) : null}
+                        )}
                       </button>
                     </li>
                   );

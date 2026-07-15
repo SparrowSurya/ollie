@@ -101,6 +101,10 @@ export function OllamaProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const setDefaultModel = (modelName: string) => {
+    if (disabledModels.includes(modelName)) {
+      console.warn(`Cannot set default model to ${modelName} because its API key is missing.`);
+      return;
+    }
     setDefaultModelState(modelName);
     localStorage.setItem("ollie-default-model", modelName);
   };
@@ -111,6 +115,10 @@ export function OllamaProvider({ children }: { children: React.ReactNode }) {
   };
 
   const setActiveModel = (modelName: string) => {
+    if (disabledModels.includes(modelName)) {
+      console.warn(`Cannot set active model to ${modelName} because its API key is missing.`);
+      return;
+    }
     setActiveModelState(modelName);
     localStorage.setItem("ollie-active-model", modelName);
   };
