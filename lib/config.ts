@@ -66,6 +66,21 @@ export interface EnvConfig {
    * List of tools that require manual user selection in the UI to be active
    */
   manualToolsList: string[];
+
+  /**
+   * OpenAI API Key
+   */
+  openaiApiKey?: string;
+
+  /**
+   * Anthropic API Key
+   */
+  anthropicApiKey?: string;
+
+  /**
+   * Gemini API Key
+   */
+  geminiApiKey?: string;
 }
 
 /**
@@ -95,6 +110,9 @@ export default function readEnv(): EnvConfig {
     enabledToolsList: parseToolList(process.env.ENABLED_TOOLS),
     disabledToolsList: parseToolList(process.env.DISABLED_TOOLS),
     manualToolsList: parseToolList(process.env.MANNUAL_TOOLS || process.env.MANUAL_TOOLS),
+    openaiApiKey: process.env.OPENAI_API_KEY,
+    anthropicApiKey: process.env.ANTHROPIC_API_KEY,
+    geminiApiKey: process.env.GEMINI_API_KEY,
   };
 }
 
@@ -114,4 +132,14 @@ export function getToolStatus(toolName: string, env: EnvConfig): "DISABLED" | "M
     return "MANUAL";
   }
   return "ENABLED";
+}
+
+/**
+ * Interface representing a remote model from the config file.
+ */
+export interface RemoteModel {
+  id: string;
+  name: string;
+  provider: "openai" | "anthropic" | "gemini" | string;
+  capabilities: string[];
 }

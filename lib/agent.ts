@@ -1,4 +1,7 @@
 import { ChatOllama } from "@langchain/ollama";
+import { ChatOpenAI } from "@langchain/openai";
+import { ChatAnthropic } from "@langchain/anthropic";
+import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { MessagesAnnotation, StateGraph, MemorySaver } from "@langchain/langgraph";
 import { HumanMessage, SystemMessage, AIMessage, ToolMessage } from "@langchain/core/messages";
 import { RunnableConfig } from "@langchain/core/runnables";
@@ -6,7 +9,7 @@ import { z } from "zod";
 import { tool } from "@langchain/core/tools";
 import path from "path";
 import fs from "fs/promises";
-import readEnv, { getToolStatus } from "./config";
+import readEnv, { getToolStatus, RemoteModel } from "./config";
 import { createSession, getSession, updateSessionTitle, updateSessionModel, getMessages, saveMessage, listMcpServers } from "./db";
 import { agentTools } from "./tools";
 import { logger } from "./logger";
@@ -16,15 +19,39 @@ const env = readEnv();
 
 // Helper function to fetch the first available pulled model name dynamically
 export async function getDefaultModel(): Promise<string> {
-  const res = await fetch(`${env.ollamaHost}/api/tags`);
-  if (!res.ok) {
-    throw new Error(`Failed to query Ollama service: ${res.statusText}`);
+  // 1. Try local Ollama first
+  try {
+    const res = await fetch(`${env.ollamaHost}/api/tags`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data.models && data.models.length > 0) {
+        return data.models[0].name;
+      }
+    }
+  } catch {
+    logger.warning("Ollama not reachable during getDefaultModel check, falling back to remote models");
   }
-  const data = await res.json();
-  if (!data.models || data.models.length === 0) {
-    throw new Error("No local models are installed on this Ollama host. Please pull a model first.");
+
+  // 2. Fall back to first enabled remote model in the registry
+  try {
+    const registryPath = path.join(process.cwd(), "config", "models-registry.json");
+    const fileContent = await fs.readFile(registryPath, "utf-8");
+    const remoteModels: RemoteModel[] = JSON.parse(fileContent);
+    for (const m of remoteModels) {
+      let isEnabled = false;
+      if (m.provider === "openai") isEnabled = !!env.openaiApiKey;
+      else if (m.provider === "anthropic") isEnabled = !!env.anthropicApiKey;
+      else if (m.provider === "gemini") isEnabled = !!env.geminiApiKey;
+
+      if (isEnabled) {
+        return m.id;
+      }
+    }
+  } catch (err) {
+    logger.error("Failed to load remote models during getDefaultModel fallback:", err);
   }
-  return data.models[0].name;
+
+  throw new Error("No models are available. Please ensure Ollama is running or configure remote API keys in the environment.");
 }
 
 // Helper function to check if a model supports thinking capability
@@ -69,16 +96,16 @@ async function buildMessageContent(text: string, imageUrls?: string[]): Promise<
     if (!imgUrl.trim()) continue;
     try {
       const filename = path.basename(imgUrl);
-      const baseStorageDir = env.storagePath 
-        ? path.resolve(env.storagePath) 
+      const baseStorageDir = env.storagePath
+        ? path.resolve(env.storagePath)
         : path.join(process.cwd(), "storage");
       const filePath = path.join(baseStorageDir, "upload", filename);
-      
+
       const fileBuffer = await fs.readFile(filePath);
       const ext = path.extname(filename).toLowerCase();
       const mimeType = MIME_TYPES[ext] || "image/jpeg";
       const base64Data = fileBuffer.toString("base64");
-      
+
       contentParts.push({
         type: "image_url",
         image_url: {
@@ -192,41 +219,80 @@ async function fetchMcpTools(url: string): Promise<McpToolDefinition[]> {
 const callModel = async (state: typeof MessagesAnnotation.State, config?: RunnableConfig) => {
   const modelName = config?.configurable?.model_name || (await getDefaultModel());
   const customInstructions = config?.configurable?.custom_instructions;
-  const hasThinking = await supportsThinking(modelName);
+  const isRemoteModel = modelName.includes("/");
 
-  const chatModel = new ChatOllama({
-    model: modelName,
-    baseUrl: env.ollamaHost,
-    keepAlive: env.keepAlive,
-    ...(hasThinking ? { think: true } : {}),
-  });
-
-  // Patch client.chat to merge consecutive user messages (due to LangChain splitting content parts)
-  const originalChat = chatModel.client.chat.bind(chatModel.client);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (chatModel.client as any).chat = async function (args: any) {
-    if (args && Array.isArray(args.messages)) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const mergedMessages: any[] = [];
-      for (const msg of args.messages) {
-        if (
-          mergedMessages.length > 0 &&
-          msg.role === "user" &&
-          mergedMessages[mergedMessages.length - 1].role === "user"
-        ) {
-          const prevMsg = mergedMessages[mergedMessages.length - 1];
-          prevMsg.content = (prevMsg.content || "") + (msg.content || "");
-          if (msg.images) {
-            prevMsg.images = [...(prevMsg.images || []), ...msg.images];
-          }
-        } else {
-          mergedMessages.push({ ...msg });
-        }
+  let chatModel: ChatOpenAI | ChatAnthropic | ChatGoogleGenerativeAI | ChatOllama;
+  if (isRemoteModel) {
+    const [provider, name] = modelName.split("/");
+    const currentEnv = readEnv();
+    if (provider === "openai") {
+      if (!currentEnv.openaiApiKey) {
+        throw new Error("OPENAI_API_KEY environment variable is not configured on the server.");
       }
-      args.messages = mergedMessages;
+      chatModel = new ChatOpenAI({
+        model: name,
+        apiKey: currentEnv.openaiApiKey,
+        streaming: true,
+      });
+    } else if (provider === "anthropic") {
+      if (!currentEnv.anthropicApiKey) {
+        throw new Error("ANTHROPIC_API_KEY environment variable is not configured on the server.");
+      }
+      chatModel = new ChatAnthropic({
+        model: name,
+        apiKey: currentEnv.anthropicApiKey,
+        streaming: true,
+      });
+    } else if (provider === "gemini") {
+      if (!currentEnv.geminiApiKey) {
+        throw new Error("GEMINI_API_KEY environment variable is not configured on the server.");
+      }
+      chatModel = new ChatGoogleGenerativeAI({
+        model: name,
+        apiKey: currentEnv.geminiApiKey,
+        streaming: true,
+      });
+    } else {
+      throw new Error(`Unsupported remote model provider: ${provider}`);
     }
-    return originalChat(args);
-  };
+  } else {
+    const hasThinking = await supportsThinking(modelName);
+    const ollamaModel = new ChatOllama({
+      model: modelName,
+      baseUrl: env.ollamaHost,
+      keepAlive: env.keepAlive,
+      ...(hasThinking ? { think: true } : {}),
+    });
+
+    // Patch client.chat to merge consecutive user messages (due to LangChain splitting content parts)
+    const originalChat = ollamaModel.client.chat.bind(ollamaModel.client);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (ollamaModel.client as any).chat = async function (args: any) {
+      if (args && Array.isArray(args.messages)) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const mergedMessages: any[] = [];
+        for (const msg of args.messages) {
+          if (
+            mergedMessages.length > 0 &&
+            msg.role === "user" &&
+            mergedMessages[mergedMessages.length - 1].role === "user"
+          ) {
+            const prevMsg = mergedMessages[mergedMessages.length - 1];
+            prevMsg.content = (prevMsg.content || "") + (msg.content || "");
+            if (msg.images) {
+              prevMsg.images = [...(prevMsg.images || []), ...msg.images];
+            }
+          } else {
+            mergedMessages.push({ ...msg });
+          }
+        }
+        args.messages = mergedMessages;
+      }
+      return originalChat(args);
+    };
+
+    chatModel = ollamaModel;
+  }
 
   const threadId = config?.configurable?.thread_id;
   const currentEnv = readEnv();
@@ -299,7 +365,7 @@ const callToolsNode = async (state: typeof MessagesAnnotation.State, config?: Ru
   }
 
   const threadId = config?.configurable?.thread_id;
-  
+
   // Fetch MCP servers for this session
   const mcpServers = threadId
     ? await listMcpServers(threadId)
@@ -347,7 +413,7 @@ const callToolsNode = async (state: typeof MessagesAnnotation.State, config?: Ru
         try {
           const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
           const { StreamableHTTPClientTransport } = await import("@modelcontextprotocol/sdk/client/streamableHttp.js");
-          
+
           const callPromise = async () => {
             transport = new StreamableHTTPClientTransport(new URL(server.url));
             const client = new Client({ name: "Ollie-Client", version: "1.0.0" });
@@ -355,14 +421,14 @@ const callToolsNode = async (state: typeof MessagesAnnotation.State, config?: Ru
 
             const toolsData = await client.listTools();
             const hasTool = toolsData.tools.some((t) => t.name === toolCall.name);
-            
+
             if (hasTool) {
               const mcpResult = await client.callTool({
                 name: toolCall.name,
                 arguments: toolCall.args,
               });
-              const content = typeof mcpResult.content === "string" 
-                ? mcpResult.content 
+              const content = typeof mcpResult.content === "string"
+                ? mcpResult.content
                 : JSON.stringify(mcpResult.content);
               await transport.close();
               return { hasTool: true, content };
@@ -621,7 +687,7 @@ export function streamAgentResponse(
         try {
           const finalState = await app.getState({ configurable: { thread_id: threadId } });
           const finalMessages = finalState.values?.messages || [];
-          
+
           // Gather new messages generated in this turn (after the last human message)
           const turnMessages = [];
           for (let i = finalMessages.length - 1; i >= 0; i--) {
@@ -649,7 +715,7 @@ export function streamAgentResponse(
                 assistantContent += "\n</think>\n";
                 hasFinishedThinking = true;
               }
-              
+
               controller.enqueue(encoder.encode(toolImageMarkdown));
               assistantContent += toolImageMarkdown;
             }

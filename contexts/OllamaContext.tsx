@@ -12,6 +12,7 @@ interface OllamaContextType {
   runnableModels: string[];
   imageModels: string[];
   allInstalledModels: string[];
+  disabledModels: string[];
   defaultModel: string;
   defaultImageModel: string;
   activeModel: string;
@@ -32,6 +33,7 @@ export function OllamaProvider({ children }: { children: React.ReactNode }) {
   const [runnableModels, setRunnableModels] = useState<string[]>([]);
   const [imageModels, setImageModels] = useState<string[]>([]);
   const [allInstalledModels, setAllInstalledModels] = useState<string[]>([]);
+  const [disabledModels, setDisabledModels] = useState<string[]>([]);
   const [defaultModel, setDefaultModelState] = useState<string>("");
   const [defaultImageModel, setDefaultImageModelState] = useState<string>("");
   const [activeModel, setActiveModelState] = useState<string>("");
@@ -48,17 +50,22 @@ export function OllamaProvider({ children }: { children: React.ReactNode }) {
         const list = data.models || [];
         const imgList = data.imageModels || [];
         const allList = data.allInstalledModels || [];
+        const disabledList = data.disabledModels || [];
         setRunnableModels(list);
         setImageModels(imgList);
         setAllInstalledModels(allList);
+        setDisabledModels(disabledList);
 
-        // Resolve default model
+        const enabledRunnable = list.filter((m: string) => !disabledList.includes(m));
+
+        // Resolve default model (fallback if disabled)
         const savedDefault = localStorage.getItem("ollie-default-model") || "";
-        if (savedDefault && list.includes(savedDefault)) {
+        if (savedDefault && list.includes(savedDefault) && !disabledList.includes(savedDefault)) {
           setDefaultModelState(savedDefault);
+        } else if (enabledRunnable.length > 0) {
+          setDefaultModelState(enabledRunnable[0]);
         } else if (list.length > 0) {
           setDefaultModelState(list[0]);
-          localStorage.setItem("ollie-default-model", list[0]);
         }
 
         // Resolve default image model
@@ -67,17 +74,16 @@ export function OllamaProvider({ children }: { children: React.ReactNode }) {
           setDefaultImageModelState(savedDefaultImg);
         } else if (imgList.length > 0) {
           setDefaultImageModelState(imgList[0]);
-          localStorage.setItem("ollie-default-image-model", imgList[0]);
         }
 
-        // Resolve active model
+        // Resolve active model (fallback if disabled)
         const savedActive = localStorage.getItem("ollie-active-model") || "";
-        if (savedActive && (list.includes(savedActive) || imgList.includes(savedActive))) {
+        if (savedActive && (list.includes(savedActive) || imgList.includes(savedActive)) && !disabledList.includes(savedActive)) {
           setActiveModelState(savedActive);
+        } else if (enabledRunnable.length > 0) {
+          setActiveModelState(enabledRunnable[0]);
         } else if (list.length > 0) {
           setActiveModelState(list[0]);
-        } else if (imgList.length > 0) {
-          setActiveModelState(imgList[0]);
         }
       }
     } catch (error) {
@@ -275,6 +281,7 @@ export function OllamaProvider({ children }: { children: React.ReactNode }) {
         runnableModels,
         imageModels,
         allInstalledModels,
+        disabledModels,
         defaultModel,
         defaultImageModel,
         activeModel,

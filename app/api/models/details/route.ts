@@ -1,6 +1,9 @@
+import fs from "fs/promises";
+import path from "path";
 import { NextResponse } from "next/server";
 import { OllamaService } from "@/lib/services/ollama";
 import { logger } from "@/lib/logger";
+import { RemoteModel } from "@/lib/config";
 
 // Helper to format bytes to human readable sizes
 function formatBytes(bytes: number): string {
@@ -22,6 +25,37 @@ export async function GET(req: Request) {
     }
 
     logger.info(`Fetching details for model: "${model}"`);
+
+    // Handle remote cloud models
+    if (model.includes("/")) {
+      const [provider] = model.split("/");
+      let matchedModel: RemoteModel | undefined;
+
+      try {
+        const registryPath = path.join(process.cwd(), "config", "models-registry.json");
+        const fileContent = await fs.readFile(registryPath, "utf-8");
+        const remoteModels: RemoteModel[] = JSON.parse(fileContent);
+        matchedModel = remoteModels.find((m) => m.id === model);
+      } catch (err) {
+        logger.error(`Failed to read models registry for detail lookup of "${model}":`, err);
+      }
+
+      const displayProvider =
+        provider === "openai" ? "OpenAI" :
+        provider === "anthropic" ? "Anthropic" :
+        provider === "gemini" ? "Google Gemini" : provider;
+
+      return NextResponse.json({
+        name: model,
+        size: "Cloud (N/A)",
+        sizeInRam: "Cloud (N/A)",
+        isLoaded: true,
+        format: "API",
+        family: displayProvider,
+        quantization: "FP16 / API",
+        capabilities: matchedModel?.capabilities || ["completion"],
+      });
+    }
 
     // 1. Fetch metadata details from Ollama /api/show
     const showData = await OllamaService.showModel(model);
@@ -63,11 +97,11 @@ export async function GET(req: Request) {
     const capabilities = showData.capabilities || [];
     const details = showData.details || {};
     const families = details.families || (details.family ? [details.family] : []);
-    const hasVision = 
-      capabilities.includes("vision") || 
+    const hasVision =
+      capabilities.includes("vision") ||
       families.some((f: string) => f.toLowerCase().includes("clip") || f.toLowerCase().includes("mllama") || f.toLowerCase().includes("vision")) ||
       !!showData.projector_info;
-    
+
     const finalCapabilities = [...capabilities];
     if (hasVision && !finalCapabilities.includes("vision")) {
       finalCapabilities.push("vision");

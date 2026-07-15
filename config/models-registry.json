@@ -1,0 +1,44 @@
+[
+  {
+    "id": "openai/gpt-4o",
+    "name": "GPT-4o",
+    "provider": "openai",
+    "capabilities": ["completion", "vision"]
+  },
+  {
+    "id": "openai/gpt-4o-mini",
+    "name": "GPT-4o Mini",
+    "provider": "openai",
+    "capabilities": ["completion", "vision"]
+  },
+  {
+    "id": "openai/o1-mini",
+    "name": "o1-mini",
+    "provider": "openai",
+    "capabilities": ["completion"]
+  },
+  {
+    "id": "anthropic/claude-3-5-sonnet-20241022",
+    "name": "Claude 3.5 Sonnet",
+    "provider": "anthropic",
+    "capabilities": ["completion", "vision"]
+  },
+  {
+    "id": "anthropic/claude-3-5-haiku-20241022",
+    "name": "Claude 3.5 Haiku",
+    "provider": "anthropic",
+    "capabilities": ["completion"]
+  },
+  {
+    "id": "gemini/gemini-1.5-pro",
+    "name": "Gemini 1.5 Pro",
+    "provider": "gemini",
+    "capabilities": ["completion", "vision"]
+  },
+  {
+    "id": "gemini/gemini-1.5-flash",
+    "name": "Gemini 1.5 Flash",
+    "provider": "gemini",
+    "capabilities": ["completion", "vision"]
+  }
+]

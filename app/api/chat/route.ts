@@ -3,6 +3,7 @@ import { streamAgentResponse, getDefaultModel } from "@/lib/agent";
 import { generateImage } from "@/lib/services/image-gen";
 import { OllamaService } from "@/lib/services/ollama";
 import { logger } from "@/lib/logger";
+import { RemoteModel } from "@/lib/config";
 
 export async function POST(req: Request) {
   let activeThreadId = "default-session";
@@ -19,11 +20,31 @@ export async function POST(req: Request) {
 
     logger.info(`Received chat request [SessionID: "${activeThreadId}", Model: "${targetModel}", UploadedImagesCount: ${images?.length ?? 0}]`);
 
-    const capabilities = await OllamaService.getModelCapabilities(targetModel);
-    logger.info(`Model capabilities checked for "${targetModel}": [${capabilities.join(", ")}]`);
+    let isImageModel = false;
+    let isChatSupported = true;
 
-    const isImageModel = capabilities.includes("image");
-    const isChatSupported = capabilities.includes("completion");
+    if (targetModel.includes("/")) {
+      try {
+        const fs = await import("fs/promises");
+        const path = await import("path");
+        const registryPath = path.join(process.cwd(), "config", "models-registry.json");
+        const fileContent = await fs.readFile(registryPath, "utf-8");
+        const remoteModels: RemoteModel[] = JSON.parse(fileContent);
+        const matched = remoteModels.find((m) => m.id === targetModel);
+        if (matched) {
+          const caps = matched.capabilities || [];
+          isImageModel = caps.includes("image");
+          isChatSupported = caps.includes("completion");
+        }
+      } catch (err) {
+        logger.error(`Failed to load capabilities for remote model "${targetModel}":`, err);
+      }
+    } else {
+      const capabilities = await OllamaService.getModelCapabilities(targetModel);
+      logger.info(`Model capabilities checked for "${targetModel}": [${capabilities.join(", ")}]`);
+      isImageModel = capabilities.includes("image");
+      isChatSupported = capabilities.includes("completion");
+    }
 
     if (!isChatSupported && !isImageModel) {
       logger.warning(`Model "${targetModel}" is not supported (missing both chat and image capabilities)`);

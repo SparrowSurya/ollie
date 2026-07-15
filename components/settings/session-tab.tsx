@@ -16,7 +16,7 @@ export default function SessionTab() {
   const params = useParams();
   const sessionId = params?.sessionId as string | undefined;
 
-  const { activeModel, setActiveModel, runnableModels } = useOllama();
+  const { activeModel, setActiveModel, runnableModels, disabledModels } = useOllama();
   const { customInstructions, setCustomInstructions } = useSettings();
 
   const [mcpServers, setMcpServers] = useState<McpServerInfo[]>([]);
@@ -174,11 +174,18 @@ export default function SessionTab() {
             {runnableModels.length === 0 ? (
               <option value="">No models installed</option>
             ) : (
-              runnableModels.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))
+              runnableModels.map((m) => {
+                const isDisabled = disabledModels?.includes(m);
+                const isRemote = m.includes("/");
+                const [provider, rawName] = isRemote ? m.split("/") : ["ollama", m];
+                const displayName = isRemote ? `${rawName.replace(/-/g, " ").toUpperCase()} (${provider.toUpperCase()})` : m;
+
+                return (
+                  <option key={m} value={m} disabled={isDisabled}>
+                    {displayName} {isDisabled ? " (API Key Missing)" : ""}
+                  </option>
+                );
+              })
             )}
           </select>
           {runnableModels.length === 0 && (

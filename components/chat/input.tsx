@@ -40,7 +40,7 @@ export default function ChatInput({
   const [attachments, setAttachments] = useState<ImageAttachment[]>([]);
   const [fileError, setFileError] = useState<string | null>(null);
 
-  const { imageModels } = useOllama();
+  const { imageModels, disabledModels } = useOllama();
   const {
     activeModelSupportsVision,
     isGenerating,
@@ -282,26 +282,50 @@ export default function ChatInput({
               </div>
               <ul
                 tabIndex={0}
-                className="dropdown-content menu p-1.5 shadow-xl glass-card rounded-xl w-48 text-[11px] font-mono font-bold text-base-content/85 z-50 mb-1.5"
+                className="dropdown-content menu p-1.5 shadow-xl glass-card rounded-xl w-52 text-[11px] font-mono font-bold text-base-content/85 z-50 mb-1.5"
               >
-                {runnableModels.map((m) => (
-                  <li key={m}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onModelChange?.(m);
-                        if (document.activeElement instanceof HTMLElement) {
-                          document.activeElement.blur();
-                        }
-                      }}
-                      className={`px-2.5 py-1.5 rounded-lg text-left w-full hover:bg-base-content/10 hover:text-base-content ${
-                        m === activeModel ? "bg-user-accent/10 text-user-accent" : ""
-                      }`}
-                    >
-                      {m}
-                    </button>
-                  </li>
-                ))}
+                {runnableModels.map((m) => {
+                  const isDisabled = disabledModels?.includes(m);
+                  const isRemote = m.includes("/");
+                  const [provider, rawName] = isRemote ? m.split("/") : ["ollama", m];
+                  const displayName = isRemote ? rawName.replace(/-/g, " ").toUpperCase() : m;
+
+                  return (
+                    <li key={m}>
+                      <button
+                        type="button"
+                        disabled={isDisabled}
+                        onClick={() => {
+                          if (isDisabled) return;
+                          onModelChange?.(m);
+                          if (document.activeElement instanceof HTMLElement) {
+                            document.activeElement.blur();
+                          }
+                        }}
+                        className={`px-2.5 py-1.5 rounded-lg text-left w-full flex items-center justify-between gap-1.5 ${
+                          isDisabled ? "opacity-35 cursor-not-allowed line-through" : "hover:bg-base-content/10 hover:text-base-content"
+                        } ${
+                          m === activeModel ? "bg-user-accent/10 text-user-accent" : ""
+                        }`}
+                      >
+                        <span className="truncate max-w-30">{displayName}</span>
+                        {isDisabled ? (
+                          <span className="badge badge-warning scale-75 text-[7px] font-sans border-none px-1 py-0.5 rounded-xs shrink-0 select-none">
+                            MISSING
+                          </span>
+                        ) : isRemote ? (
+                          <span className={`badge badge-xs text-[7.5px] scale-90 border-none font-bold px-1 py-0.5 rounded-xs select-none shrink-0 ${
+                            provider === "openai" ? "bg-emerald-500/10 text-emerald-400" :
+                            provider === "anthropic" ? "bg-amber-500/10 text-amber-400" :
+                            provider === "gemini" ? "bg-blue-500/10 text-blue-400" : "bg-user-accent/15 text-user-accent"
+                          }`}>
+                            {provider.toUpperCase()}
+                          </span>
+                        ) : null}
+                      </button>
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           ) : (
@@ -309,7 +333,7 @@ export default function ChatInput({
               No active model
             </span>
           )}
- 
+
           {availableTools && availableTools.length > 0 && (
             <div className="dropdown dropdown-top select-none">
               <div
