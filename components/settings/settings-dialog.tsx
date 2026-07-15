@@ -73,17 +73,17 @@ export default function SettingsDialog({ isOpen, onClose }: Readonly<SettingsDia
           </button>
         </div>
 
-        {/* Modal Content: Split Pane */}
-        <div className="flex-1 flex gap-6 overflow-hidden min-h-0">
+        {/* Modal Content: Split Pane / Responsive Stack */}
+        <div className="flex-1 flex flex-col md:flex-row gap-4 md:gap-6 overflow-hidden min-h-0">
           {/* Left Navigation Bar */}
-          <div className="w-40 shrink-0 flex flex-col border-r border-base-content/10 pr-4 select-none">
+          <div className="w-full md:w-40 shrink-0 flex flex-row md:flex-col border-b md:border-b-0 md:border-r border-base-content/10 pb-3 md:pb-0 pr-0 md:pr-4 gap-1.5 overflow-x-auto md:overflow-x-visible select-none">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`py-2 px-3 text-left text-base rounded-xl font-bold uppercase tracking-wide transition-all ${
+                className={`py-1.5 md:py-2 px-3 text-left text-xs md:text-sm rounded-xl font-bold uppercase tracking-wide transition-all whitespace-nowrap shrink-0 ${
                   activeTab === tab.id
-                    ? "bg-user-accent/10 text-user-accent border-l-3 border-user-accent pl-2.5"
+                    ? "bg-user-accent/10 text-user-accent border-b-2 md:border-b-0 md:border-l-3 border-user-accent md:pl-2.5 pb-1 md:pb-2"
                     : "text-base-content/65 hover:text-base-content hover:bg-base-content/5"
                 }`}
               >
