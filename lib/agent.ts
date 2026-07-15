@@ -84,13 +84,18 @@ const MIME_TYPES: Record<string, string> = {
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function buildMessageContent(text: string, imageUrls?: string[]): Promise<any> {
+async function buildMessageContent(text: string, imageUrls?: string[], replyToText?: string): Promise<any> {
+  let contentText = text;
+  if (replyToText) {
+    contentText = `[Replying to highlighted text: "${replyToText}"]\n\n${text}`;
+  }
+
   if (!imageUrls || imageUrls.length === 0) {
-    return text;
+    return contentText;
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const contentParts: any[] = [{ type: "text", text }];
+  const contentParts: any[] = [{ type: "text", text: contentText }];
 
   for (const imgUrl of imageUrls) {
     if (!imgUrl.trim()) continue;
@@ -606,7 +611,7 @@ export function streamAgentResponse(
           dbMessages.map(async (m) => {
             if (m.role === "user") {
               const mImages = m.images ? m.images.split(",") : undefined;
-              const content = await buildMessageContent(m.content, mImages);
+              const content = await buildMessageContent(m.content, mImages, m.replyToText || undefined);
               return new HumanMessage({ content, id: m.id });
             } else {
               return new AIMessage({ content: m.content, id: m.id });
@@ -632,7 +637,7 @@ export function streamAgentResponse(
         }
 
         // 4. Run the graph and listen to stream events
-        const userMessageContent = await buildMessageContent(message, images);
+        const userMessageContent = await buildMessageContent(message, images, replyToText);
         const eventStream = app.streamEvents(
           { messages: [new HumanMessage({ content: userMessageContent, id: userMsgId })] },
           {
