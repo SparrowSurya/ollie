@@ -358,7 +358,30 @@ const callModel = async (state: typeof MessagesAnnotation.State, config?: Runnab
     messages = [new SystemMessage(customInstructions), ...messages];
   }
 
-  const response = await dynamicModel.invoke(messages, config);
+  let response;
+  try {
+    response = await dynamicModel.invoke(messages, config);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } catch (error: any) {
+    const errorMessage = error?.message || String(error);
+    const rawError = error?.error ? String(error.error) : "";
+    const isToolError =
+      errorMessage.includes("does not support tools") ||
+      errorMessage.includes("tool calling") ||
+      errorMessage.includes("not support tools") ||
+      errorMessage.includes("function_declarations") ||
+      errorMessage.includes("propertyNames") ||
+      errorMessage.includes("tool_choice") ||
+      rawError.includes("does not support tools");
+
+    if (isToolError && toolsToBind.length > 0) {
+      logger.warning(`Model failed with tool calling error: "${errorMessage}". Retrying call without tools.`);
+      response = await chatModel.invoke(messages, config);
+    } else {
+      throw error;
+    }
+  }
+
   return { messages: [response] };
 };
 

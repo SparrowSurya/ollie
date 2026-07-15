@@ -109,6 +109,11 @@ export default function ChatInput({
     textarea.style.height = `${Math.min(scrollHeight, 160)}px`;
   }, [text]);
 
+  // Focus textarea when replying to text
+  useEffect(() => {
+    textareaRef.current?.focus();
+  }, [replyToText]);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files) return;
     const files = Array.from(e.target.files);
@@ -242,7 +247,7 @@ export default function ChatInput({
         onChange={(e) => setText(e.target.value)}
         onKeyDown={handleKeyDown}
         placeholder={placeholder ?? defaultPlaceholder}
-        className="w-full bg-transparent border-none text-base text-base-content leading-relaxed font-sans placeholder-base-content/30 resize-none max-h-40 py-1 focus:outline-hidden focus:ring-0 focus:ring-offset-0 min-h-6 max-w-full"
+        className="chat-input-textarea w-full bg-transparent border-none text-base text-base-content leading-relaxed font-sans placeholder-base-content/30 resize-none max-h-40 py-1 focus:outline-hidden focus:ring-0 focus:ring-offset-0 min-h-6 max-w-full"
       ></textarea>
 
       {/* Bottom Actions Toolbar */}
