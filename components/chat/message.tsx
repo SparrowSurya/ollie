@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { MessageRole } from "./types";
 import { useChatContext } from "@/contexts/ChatContext";
+import { useOllama } from "@/contexts/OllamaContext";
 import { parseResponseParts } from "@/lib/markdown";
-import { X, ChevronLeft, ChevronRight } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, Wand2, Globe, Wrench } from "lucide-react";
 import { SafeImage } from "./image-placeholders";
 import Image from "next/image";
 
@@ -11,6 +12,7 @@ export interface ChatMessageProps {
   role: MessageRole;
   content: string;
   pendingStatus?: "loading" | "generating";
+  isCurrentlyGenerating?: boolean;
   modelName?: string;
   images?: string[];
   generatedImages?: string[];
@@ -22,12 +24,14 @@ const ChatMessage = React.memo(function ChatMessage({
   role,
   content,
   pendingStatus,
+  isCurrentlyGenerating = false,
   modelName,
   images,
   generatedImages,
   replyToText,
 }: Readonly<ChatMessageProps>) {
   const { allMessages, switchBranch, editMessage, regenerateMessage, branchToNewChat } = useChatContext();
+  const { imageModels } = useOllama();
 
   const isUser = role === "user";
   const displayImages = images || generatedImages;
@@ -157,10 +161,31 @@ const ChatMessage = React.memo(function ChatMessage({
   }
 
   if (pendingStatus === "generating") {
+    const isImage = Boolean(modelName && imageModels?.includes(modelName));
     return (
-      <div className="flex justify-start w-full my-4 font-sans text-base-content/50 max-w-full items-center gap-2 select-none animate-pulse">
-        <span className="loading loading-ring loading-sm text-user-accent"></span>
-        <span className="text-sm font-light italic">Generating...</span>
+      <div className="flex flex-col justify-start w-full my-4 font-sans max-w-md select-none">
+        {modelName && (
+          <span className="text-xs font-mono font-bold tracking-wider text-base-content/50 mb-1.5 block uppercase">
+            {modelName}
+          </span>
+        )}
+        <div className="flex items-center gap-3 p-3.5 rounded-2xl glass-card border border-user-accent/30 bg-user-accent/10 text-user-accent animate-pulse">
+          <div className="p-2 rounded-xl bg-user-accent/15 flex items-center justify-center">
+            {isImage ? (
+              <Wand2 className="w-4 h-4 animate-spin text-user-accent" />
+            ) : (
+              <span className="loading loading-ring loading-sm text-user-accent"></span>
+            )}
+          </div>
+          <div className="flex flex-col">
+            <span className="text-xs font-bold tracking-wide uppercase font-sans">
+              {isImage ? "Generating Image..." : "Generating..."}
+            </span>
+            <span className="text-[11px] text-base-content/60 italic font-sans">
+              {isImage ? "Running local image diffusion model..." : "Waiting for model..."}
+            </span>
+          </div>
+        </div>
       </div>
     );
   }
@@ -356,7 +381,7 @@ const ChatMessage = React.memo(function ChatMessage({
   // since they are already displayed in the gallery below.
   const cleanedContent = content.replace(/!\[.*?\]\(\/api\/uploads\/.*?\)/g, "").trim();
 
-  const { thinkingHtml, contentHtml, isStillThinking, hasThinking } = parseResponseParts(cleanedContent);
+  const { thinkingHtml, contentHtml, isStillThinking, hasThinking, activeToolCall } = parseResponseParts(cleanedContent);
 
   // Assistant response is raw text flowing top-down on the left, displaying optional thinking process
   return (
@@ -392,6 +417,36 @@ const ChatMessage = React.memo(function ChatMessage({
             onClick={handleCopyCodeClick}
             dangerouslySetInnerHTML={{ __html: contentHtml }}
           />
+        )}
+        {activeToolCall && (
+          <div className="flex items-center gap-3 p-3 my-2.5 rounded-2xl glass-card border border-user-accent/30 bg-user-accent/10 text-user-accent max-w-sm animate-pulse select-none">
+            <div className="p-2 rounded-xl bg-user-accent/15 flex items-center justify-center">
+              {activeToolCall.name === "generate_image" ? (
+                <Wand2 className="w-4 h-4 animate-spin text-user-accent" />
+              ) : activeToolCall.name === "web_search" ? (
+                <Globe className="w-4 h-4 animate-spin text-user-accent" />
+              ) : (
+                <Wrench className="w-4 h-4 animate-spin text-user-accent" />
+              )}
+            </div>
+            <div className="flex flex-col">
+              <span className="text-xs font-bold tracking-wide uppercase font-sans">
+                {activeToolCall.name === "generate_image"
+                  ? "Generating Image..."
+                  : activeToolCall.name === "web_search"
+                  ? "Searching the web..."
+                  : `Running ${activeToolCall.name}...`}
+              </span>
+              <span className="text-[11px] text-base-content/60 italic font-sans">
+                {activeToolCall.name === "generate_image"
+                  ? "Ollama is rendering your image in the background"
+                  : "Tool execution in progress..."}
+              </span>
+            </div>
+          </div>
+        )}
+        {isCurrentlyGenerating && !activeToolCall && !isStillThinking && contentHtml && (
+          <span className="inline-block w-1.5 h-4 ml-1 bg-user-accent animate-pulse align-middle" />
         )}
 
         {/* Version switcher */}

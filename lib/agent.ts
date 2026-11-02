@@ -433,7 +433,7 @@ const callToolsNode = async (state: typeof MessagesAnnotation.State, config?: Ru
       if (standardTool) {
         try {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const result = await (standardTool as any).invoke(toolCall.args);
+          const result = await (standardTool as any).invoke(toolCall.args, config);
           const content = typeof result === "string" ? result : JSON.stringify(result);
           return new ToolMessage({
             name: toolCall.name,
@@ -693,8 +693,29 @@ export function streamAgentResponse(
 
         logger.info(`Running agent graph event stream...`);
         for await (const event of eventStream) {
-          // Listen specifically to model streaming events
-          if (event.event === "on_chat_model_stream") {
+          if (event.event === "on_tool_start") {
+            if (hasStartedThinking && !hasFinishedThinking) {
+              controller.enqueue(encoder.encode("\n</think>\n"));
+              assistantContent += "\n</think>\n";
+              hasFinishedThinking = true;
+            }
+            const toolName = event.name || "tool";
+            let label = "Running tool...";
+            if (toolName === "generate_image") {
+              label = "Generating image...";
+            } else if (toolName === "web_search") {
+              label = "Searching the web...";
+            } else {
+              label = `Running ${toolName}...`;
+            }
+            const toolTag = `<tool_call name="${toolName}">${label}</tool_call>\n`;
+            controller.enqueue(encoder.encode(toolTag));
+            assistantContent += toolTag;
+          } else if (event.event === "on_tool_end") {
+            const toolEndTag = `</tool_call>\n`;
+            controller.enqueue(encoder.encode(toolEndTag));
+            assistantContent += toolEndTag;
+          } else if (event.event === "on_chat_model_stream") {
             const chunk = event.data.chunk;
 
             // Extract potential reasoning tokens from different versions of LangChain
@@ -776,11 +797,16 @@ export function streamAgentResponse(
         }
         const generatedImagesString = generatedImagesList.length > 0 ? generatedImagesList.join(",") : undefined;
 
+        const cleanContentToSave = assistantContent
+          .replace(/<tool_call[\s\S]*?<\/tool_call>/g, "")
+          .replace(/<tool_call[\s\S]*$/g, "")
+          .trim();
+
         await saveMessage(
           assistantMsgId,
           threadId,
           "assistant",
-          assistantContent,
+          cleanContentToSave,
           targetModel,
           undefined,
           generatedImagesString,

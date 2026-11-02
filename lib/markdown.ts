@@ -59,11 +59,17 @@ export function parseMarkdown(text: string): string {
   }
 }
 
+export interface ActiveToolCall {
+  name: string;
+  label: string;
+}
+
 export interface ParsedResponse {
   thinkingHtml: string;
   contentHtml: string;
   isStillThinking: boolean;
   hasThinking: boolean;
+  activeToolCall?: ActiveToolCall | null;
 }
 
 /**
@@ -74,10 +80,24 @@ export interface ParsedResponse {
  */
 export function parseResponseParts(rawText: string): ParsedResponse {
   if (!rawText) {
-    return { thinkingHtml: "", contentHtml: "", isStillThinking: false, hasThinking: false };
+    return { thinkingHtml: "", contentHtml: "", isStillThinking: false, hasThinking: false, activeToolCall: null };
   }
 
-  const trimmed = rawText.trim();
+  let text = rawText;
+  let activeToolCall: ActiveToolCall | null = null;
+
+  const toolCallMatch = text.match(/<tool_call\s+name="([^"]+)"[^>]*>([\s\S]*?)(?:<\/tool_call>|$)/);
+  if (toolCallMatch) {
+    activeToolCall = {
+      name: toolCallMatch[1],
+      label: toolCallMatch[2].trim() || (toolCallMatch[1] === "generate_image" ? "Generating image..." : `Running ${toolCallMatch[1]}...`),
+    };
+    text = text
+      .replace(/<tool_call[\s\S]*?<\/tool_call>/g, "")
+      .replace(/<tool_call[\s\S]*$/g, "");
+  }
+
+  const trimmed = text.trim();
   if (trimmed.startsWith("<think>")) {
     const closeIndex = trimmed.indexOf("</think>");
     if (closeIndex !== -1) {
@@ -89,6 +109,7 @@ export function parseResponseParts(rawText: string): ParsedResponse {
         contentHtml: parseMarkdown(contentRaw),
         isStillThinking: false,
         hasThinking: true,
+        activeToolCall,
       };
     } else {
       // Model is still streaming thought tokens
@@ -98,6 +119,7 @@ export function parseResponseParts(rawText: string): ParsedResponse {
         contentHtml: "",
         isStillThinking: true,
         hasThinking: true,
+        activeToolCall,
       };
     }
   }
@@ -105,8 +127,9 @@ export function parseResponseParts(rawText: string): ParsedResponse {
   // Standard response (no thinking tags)
   return {
     thinkingHtml: "",
-    contentHtml: parseMarkdown(rawText),
+    contentHtml: parseMarkdown(trimmed),
     isStillThinking: false,
     hasThinking: false,
+    activeToolCall,
   };
 }

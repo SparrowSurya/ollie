@@ -45,6 +45,7 @@ const MessageView = React.memo(function MessageView({
             role={msg.role}
             content={msg.content}
             pendingStatus={isGeneratingPlaceholder ? "generating" : undefined}
+            isCurrentlyGenerating={isGenerating && isLast && msg.role === "assistant"}
             modelName={msg.modelName}
             images={msg.images}
             generatedImages={msg.generatedImages}
