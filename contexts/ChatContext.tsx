@@ -610,9 +610,12 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
               parentMessageId: m.parentMessageId || undefined,
               replyToText: m.replyToText || undefined,
             });
-            setMessages((syncData.messages || []).map(mapMsg));
-            setAllMessages((syncData.allMessages || []).map(mapMsg));
-            setHasMore(syncData.hasMore ?? false);
+            const incoming = (syncData.messages || []).map(mapMsg);
+            if (incoming.length > 0) {
+              setMessages(incoming);
+              setAllMessages((syncData.allMessages || []).map(mapMsg));
+              setHasMore(syncData.hasMore ?? false);
+            }
           }
         } catch (syncErr) {
           console.error("Failed to sync message state after stream complete:", syncErr);

@@ -51,10 +51,25 @@ export async function getMessages(sessionId: string): Promise<DbMessage[]> {
     const activePath: DbMessage[] = [];
     let currentId: string | undefined = session.activeMessageId;
     const messageMap = new Map<string, DbMessage>();
+    const parentToChildren = new Map<string, DbMessage[]>();
     
     dbMessages.forEach((m) => {
       messageMap.set(m.id, m);
+      if (m.parentMessageId) {
+        const list = parentToChildren.get(m.parentMessageId) || [];
+        list.push(m);
+        parentToChildren.set(m.parentMessageId, list);
+      }
     });
+
+    // If activeMessageId is not a leaf node (e.g. user prompt before assistant reply completed),
+    // walk down to the latest leaf along the chain so the assistant response is included.
+    while (currentId) {
+      const children = parentToChildren.get(currentId);
+      if (!children || children.length === 0) break;
+      children.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+      currentId = children[0].id;
+    }
 
     while (currentId) {
       const msg = messageMap.get(currentId);
@@ -139,10 +154,18 @@ export async function saveMessage(
     },
   });
 
-  // Only update activeMessageId for user messages; updating it for assistant messages
-  // would reset branch navigation if the user navigated to a different branch mid-generation.
+  const currentSession = await prisma.session.findUnique({
+    where: { id: sessionId },
+    select: { activeMessageId: true },
+  });
+
+  const shouldAdvanceActive =
+    role === "user" ||
+    !currentSession?.activeMessageId ||
+    currentSession.activeMessageId === parentMessageId;
+
   const sessionUpdate: { updatedAt: Date; activeMessageId?: string } = { updatedAt: new Date() };
-  if (role === "user") {
+  if (shouldAdvanceActive) {
     sessionUpdate.activeMessageId = id;
   }
   await prisma.session.update({
