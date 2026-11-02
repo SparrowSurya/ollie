@@ -109,6 +109,7 @@ export default function readEnv(): EnvConfig {
     mcpExecutionTimeoutMs: Number(process.env.MCP_EXECUTION_TIMEOUT_MS ?? 8000),
     enabledToolsList: parseToolList(process.env.ENABLED_TOOLS),
     disabledToolsList: parseToolList(process.env.DISABLED_TOOLS),
+    // MANNUAL_TOOLS is kept for backward compatibility with existing deployments
     manualToolsList: parseToolList(process.env.MANNUAL_TOOLS || process.env.MANUAL_TOOLS),
     openaiApiKey: process.env.OPENAI_API_KEY,
     anthropicApiKey: process.env.ANTHROPIC_API_KEY,

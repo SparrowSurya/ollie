@@ -36,6 +36,7 @@ export default function ChatInput({
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const fileErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [text, setText] = useState<string>("");
   const [attachments, setAttachments] = useState<ImageAttachment[]>([]);
   const [fileError, setFileError] = useState<string | null>(null);
@@ -92,12 +93,19 @@ export default function ChatInput({
     attachmentsRef.current = attachments;
   }, [attachments]);
 
-  // Clean up Object URLs on unmount
+  // Clean up Object URLs and any pending timers on unmount
   useEffect(() => {
     return () => {
       attachmentsRef.current.forEach((a) => URL.revokeObjectURL(a.previewUrl));
+      if (fileErrorTimerRef.current) clearTimeout(fileErrorTimerRef.current);
     };
   }, []);
+
+  const showFileError = (msg: string) => {
+    if (fileErrorTimerRef.current) clearTimeout(fileErrorTimerRef.current);
+    setFileError(msg);
+    fileErrorTimerRef.current = setTimeout(() => setFileError(null), 4000);
+  };
 
   // Auto-resize textarea as content changes
   useEffect(() => {
@@ -119,21 +127,18 @@ export default function ChatInput({
     const files = Array.from(e.target.files);
 
     if (attachments.length + files.length > MAX_IMAGE_COUNT) {
-      setFileError(`Cannot upload more than ${MAX_IMAGE_COUNT} images at once.`);
-      setTimeout(() => setFileError(null), 4000);
+      showFileError(`Cannot upload more than ${MAX_IMAGE_COUNT} images at once.`);
       return;
     }
 
     const validAttachments: ImageAttachment[] = [];
     for (const file of files) {
       if (!file.type.startsWith("image/")) {
-        setFileError(`File "${file.name}" is not an image.`);
-        setTimeout(() => setFileError(null), 4000);
+        showFileError(`File "${file.name}" is not an image.`);
         continue;
       }
       if (file.size > MAX_IMAGE_SIZE_MB * 1024 * 1024) {
-        setFileError(`File "${file.name}" exceeds the ${MAX_IMAGE_SIZE_MB}MB size limit.`);
-        setTimeout(() => setFileError(null), 4000);
+        showFileError(`File "${file.name}" exceeds the ${MAX_IMAGE_SIZE_MB}MB size limit.`);
         continue;
       }
       validAttachments.push({
@@ -165,6 +170,7 @@ export default function ChatInput({
 
     const filesToSend = attachments.map((a) => a.file);
     onSend?.(message, filesToSend, replyToText || undefined);
+    onClearReply?.();
 
     // Revoke all preview URLs
     attachments.forEach((a) => URL.revokeObjectURL(a.previewUrl));
@@ -247,7 +253,7 @@ export default function ChatInput({
         onChange={(e) => setText(e.target.value)}
         onKeyDown={handleKeyDown}
         placeholder={placeholder ?? defaultPlaceholder}
-        className="chat-input-textarea w-full bg-transparent border-none text-base text-base-content leading-relaxed font-sans placeholder-base-content/30 resize-none max-h-40 py-1 focus:outline-hidden focus:ring-0 focus:ring-offset-0 min-h-6 max-w-full"
+        className="w-full bg-transparent border-none text-base text-base-content leading-relaxed font-sans placeholder-base-content/30 resize-none max-h-40 py-1 focus:outline-hidden focus:ring-0 focus:ring-offset-0 min-h-6 max-w-full"
       ></textarea>
 
       {/* Bottom Actions Toolbar */}

@@ -65,7 +65,39 @@ export async function getMessages(sessionId: string): Promise<DbMessage[]> {
 
     return activePath.reverse();
   } else if (isTreeSession) {
-    return [];
+    // BUG-5 FIX: When a tree session has no activeMessageId (e.g. after a crash during
+    // the first assistant reply save), walk to the deepest leaf of the most recent root chain
+    // instead of returning an empty array.
+    const messageMap = new Map<string, DbMessage>();
+    dbMessages.forEach((m) => messageMap.set(m.id, m));
+
+    const parentToChildren = new Map<string, DbMessage[]>();
+    dbMessages.forEach((m) => {
+      const parentKey = m.parentMessageId || "__root__";
+      const children = parentToChildren.get(parentKey) || [];
+      children.push(m);
+      parentToChildren.set(parentKey, children);
+    });
+
+    // Find root messages (no parentMessageId)
+    const roots = (parentToChildren.get("__root__") || []).sort(
+      (a, b) => a.timestamp.getTime() - b.timestamp.getTime()
+    );
+
+    if (roots.length === 0) return dbMessages; // fallback: return all
+
+    // Walk down the most recent root chain to the deepest leaf
+    let currentId = roots[0].id;
+    const activePath: DbMessage[] = [roots[0]];
+    while (true) {
+      const children = (parentToChildren.get(currentId) || []).sort(
+        (a, b) => b.timestamp.getTime() - a.timestamp.getTime() // latest child first
+      );
+      if (children.length === 0) break;
+      currentId = children[0].id;
+      activePath.push(children[0]);
+    }
+    return activePath;
   }
 
   // Fallback to sequential listing for backward compatibility
@@ -107,13 +139,15 @@ export async function saveMessage(
     },
   });
 
-  // Touch the updatedAt field and update the activeMessageId of the session
+  // Only update activeMessageId for user messages; updating it for assistant messages
+  // would reset branch navigation if the user navigated to a different branch mid-generation.
+  const sessionUpdate: { updatedAt: Date; activeMessageId?: string } = { updatedAt: new Date() };
+  if (role === "user") {
+    sessionUpdate.activeMessageId = id;
+  }
   await prisma.session.update({
     where: { id: sessionId },
-    data: { 
-      updatedAt: new Date(),
-      activeMessageId: id,
-    },
+    data: sessionUpdate,
   });
 
   const uploadedFilenames = images ? images.split(",").filter(Boolean).map(url => url.split("/").pop()) : [];

@@ -67,6 +67,7 @@ export default function ChatView({
   const [editMcpName, setEditMcpName] = useState("");
   const [editMcpUrl, setEditMcpUrl] = useState("");
   const [toast, setToast] = useState<string | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleAddMcp = () => {
     const name = newMcpName.trim();
@@ -225,7 +226,6 @@ export default function ChatView({
 
   const handleSendWithReply = (text: string, imageFiles?: File[], replyTo?: string) => {
     onSend(text, imageFiles, replyTo);
-    setActiveReplyText(null);
   };
 
   // Track user's manual scroll actions to toggle the auto-scroll lock and trigger pagination
@@ -271,10 +271,9 @@ export default function ChatView({
   }, [messages]);
 
   const showToast = (message: string) => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     setToast(message);
-    setTimeout(() => {
-      setToast(null);
-    }, 3000);
+    toastTimerRef.current = setTimeout(() => setToast(null), 3000);
   };
 
   const handleLoadModel = () => {

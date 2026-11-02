@@ -290,6 +290,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
   const startNewChat = useCallback(() => {
     setMessages([]);
+    setAllMessages([]);
     const newUuid = crypto.randomUUID();
     setActiveSessionId(newUuid);
     loadedSessionIdRef.current = newUuid;
@@ -306,6 +307,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
   const startNewImageChat = useCallback(() => {
     setMessages([]);
+    setAllMessages([]);
     const newUuid = crypto.randomUUID();
     setActiveSessionId(newUuid);
     loadedSessionIdRef.current = newUuid;
@@ -378,6 +380,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     ) => {
       if (isBootstrapping) return;
 
+      // Capture sessionId at call time so an in-flight navigation can't corrupt the target URL
+      const sessionId = activeSessionId;
+
       setIsBootstrapping(true);
       setActiveModel(selectedModel);
 
@@ -392,7 +397,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            threadId: activeSessionId,
+            threadId: sessionId,
             model: selectedModel,
             customInstructions,
             mcpServers,
@@ -407,7 +412,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         setIsModelLoaded(true);
         // Refresh sidebar sessions to register the newly active thread if it was just loaded
         await fetchSessions();
-        router.push(`/chat/${activeSessionId}`);
+        router.push(`/chat/${sessionId}`);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (error: any) {
         console.error("Error bootstrapping model:", error);
@@ -731,7 +736,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     const msgIndex = messages.findIndex((m) => m.id === messageId);
     const parentPath = msgIndex >= 0 ? messages.slice(0, msgIndex) : [];
     setMessages(parentPath);
-    setAllMessages(parentPath);
+    // Keep sibling branch messages in allMessages; only remove the truncated active-path entries
+    const removedIds = new Set(msgIndex >= 0 ? messages.slice(msgIndex).map((m) => m.id) : []);
+    setAllMessages((prev) => prev.filter((m) => !removedIds.has(m.id)));
 
     await sendMessage(newText, undefined, msg.images);
   }, [messages, allMessages, activeSessionId, sendMessage]);
@@ -796,10 +803,20 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
         setMessages((prev) => [...newMessages, ...prev]);
         setAllMessages((prev) => {
-          const map = new Map<string, ChatUiMessage>();
-          prev.forEach((m: ChatUiMessage) => map.set(m.id, m));
-          newAllMessages.forEach((m: ChatUiMessage) => map.set(m.id, m));
-          return Array.from(map.values());
+          // Prefer the existing entry over the incoming DB version to preserve
+          // any streamed content that hasn't been flushed to DB yet.
+          // Older messages that don't exist locally are added from the paginated result.
+          const existingMap = new Map<string, ChatUiMessage>();
+          prev.forEach((m: ChatUiMessage) => existingMap.set(m.id, m));
+          newAllMessages.forEach((m: ChatUiMessage) => {
+            if (!existingMap.has(m.id)) {
+              existingMap.set(m.id, m);
+            }
+          });
+          // Sort by timestamp so the merged list is chronologically ordered
+          return Array.from(existingMap.values()).sort(
+            (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+          );
         });
         setHasMore(data.hasMore ?? false);
       }
@@ -832,7 +849,6 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       const data = await response.json();
       if (data.newSessionId) {
         await fetchSessions();
-        switchSession(data.newSessionId);
         router.push(`/chat/${data.newSessionId}`);
       }
     } catch (e) {

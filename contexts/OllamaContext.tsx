@@ -21,7 +21,7 @@ interface OllamaContextType {
   setDefaultModel: (modelName: string) => void;
   setDefaultImageModel: (modelName: string) => void;
   setActiveModel: (modelName: string) => void;
-  fetchRunnableModels: () => Promise<void>;
+  fetchRunnableModels: () => Promise<{ list: string[]; imgList: string[]; disabledList: string[] } | undefined>;
   pullModel: (modelName: string) => Promise<void>;
   cancelPull: (modelName: string) => void;
   deleteModel: (modelName: string) => Promise<void>;
@@ -85,10 +85,14 @@ export function OllamaProvider({ children }: { children: React.ReactNode }) {
         } else if (list.length > 0) {
           setActiveModelState(list[0]);
         }
+
+        // Return the fresh list so callers can use it directly
+        return { list, imgList, disabledList };
       }
     } catch (error) {
       console.error("OllamaContext: Failed to load runnable models:", error);
     }
+    return { list: [], imgList: [], disabledList: [] };
   };
 
   // Sync preferences on mount
@@ -175,6 +179,7 @@ export function OllamaProvider({ children }: { children: React.ReactNode }) {
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
+      let parseFailures = 0;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -188,6 +193,7 @@ export function OllamaProvider({ children }: { children: React.ReactNode }) {
           if (!line.trim()) continue;
           try {
             const chunk = JSON.parse(line);
+            parseFailures = 0;
             if (chunk.error) {
               throw new Error(chunk.error);
             }
@@ -210,6 +216,19 @@ export function OllamaProvider({ children }: { children: React.ReactNode }) {
             }
           } catch (e) {
             console.error("OllamaContext: Error parsing progress chunk:", e);
+            parseFailures++;
+            if (parseFailures >= 3) {
+              setPullingStatus((prev) => ({
+                ...prev,
+                [modelName]: {
+                  percent: prev[modelName]?.percent || 0,
+                  status: "Stream error",
+                  error: true,
+                },
+              }));
+              reader.cancel();
+              throw new Error("Failed to parse pull progress stream");
+            }
           }
         }
       }
@@ -260,27 +279,25 @@ export function OllamaProvider({ children }: { children: React.ReactNode }) {
       throw new Error(errData.error || "Failed to delete");
     }
 
-    await fetchRunnableModels();
+    // fetchRunnableModels returns the fresh list directly, so we use it
+    // to check and reset default/active models without relying on stale state.
+    const freshData = await fetchRunnableModels();
+    const freshList = freshData?.list ?? [];
 
     // Reset default or active model if they were deleted
-    setRunnableModels((prevModels) => {
-      // Check default model
-      const savedDefault = localStorage.getItem("ollie-default-model") || "";
-      if (savedDefault === modelName || !prevModels.includes(savedDefault)) {
-        const nextDefault = prevModels.length > 0 ? prevModels[0] : "";
-        setDefaultModelState(nextDefault);
-        localStorage.setItem("ollie-default-model", nextDefault);
-      }
+    const savedDefault = localStorage.getItem("ollie-default-model") || "";
+    if (savedDefault === modelName || !freshList.includes(savedDefault)) {
+      const nextDefault = freshList.length > 0 ? freshList[0] : "";
+      setDefaultModelState(nextDefault);
+      localStorage.setItem("ollie-default-model", nextDefault);
+    }
 
-      // Check active model
-      const savedActive = localStorage.getItem("ollie-active-model") || "";
-      if (savedActive === modelName || !prevModels.includes(savedActive)) {
-        const nextActive = prevModels.length > 0 ? prevModels[0] : "";
-        setActiveModelState(nextActive);
-        localStorage.setItem("ollie-active-model", nextActive);
-      }
-      return prevModels;
-    });
+    const savedActive = localStorage.getItem("ollie-active-model") || "";
+    if (savedActive === modelName || !freshList.includes(savedActive)) {
+      const nextActive = freshList.length > 0 ? freshList[0] : "";
+      setActiveModelState(nextActive);
+      localStorage.setItem("ollie-active-model", nextActive);
+    }
   };
 
   return (

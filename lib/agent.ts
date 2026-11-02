@@ -401,6 +401,16 @@ const callToolsNode = async (state: typeof MessagesAnnotation.State, config?: Ru
 
   const currentEnv = readEnv();
 
+  // Pre-fetch tool lists from all MCP servers once and cache them for this execution batch.
+  // This avoids re-connecting and calling listTools() for every parallel tool call (N×M connections).
+  const mcpToolsCache = new Map<string, string[]>();
+  await Promise.all(
+    mcpServers.map(async (server) => {
+      const toolNames = await fetchMcpTools(server.url).then((tools) => tools.map((t) => t.name));
+      mcpToolsCache.set(server.url, toolNames);
+    })
+  );
+
   const toolOutputs = await Promise.all(
     lastMessage.tool_calls.map(async (toolCall) => {
       // Check if tool is disabled via environment variables
@@ -434,8 +444,11 @@ const callToolsNode = async (state: typeof MessagesAnnotation.State, config?: Ru
         }
       }
 
-      // Look in MCP servers
+      // Look in MCP servers — use the cached tool list to skip re-listing tools per call
       for (const server of mcpServers) {
+        const cachedToolNames = mcpToolsCache.get(server.url) || [];
+        if (!cachedToolNames.includes(toolCall.name)) continue;
+
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let transport: any = null;
         try {
@@ -447,36 +460,27 @@ const callToolsNode = async (state: typeof MessagesAnnotation.State, config?: Ru
             const client = new Client({ name: "Ollie-Client", version: "1.0.0" });
             await client.connect(transport);
 
-            const toolsData = await client.listTools();
-            const hasTool = toolsData.tools.some((t) => t.name === toolCall.name);
-
-            if (hasTool) {
-              const mcpResult = await client.callTool({
-                name: toolCall.name,
-                arguments: toolCall.args,
-              });
-              const content = typeof mcpResult.content === "string"
-                ? mcpResult.content
-                : JSON.stringify(mcpResult.content);
-              await transport.close();
-              return { hasTool: true, content };
-            }
+            const mcpResult = await client.callTool({
+              name: toolCall.name,
+              arguments: toolCall.args,
+            });
+            const content = typeof mcpResult.content === "string"
+              ? mcpResult.content
+              : JSON.stringify(mcpResult.content);
             await transport.close();
-            return { hasTool: false, content: null };
+            return content;
           };
 
           const timeoutPromise = new Promise<never>((_, reject) =>
             setTimeout(() => reject(new Error(`MCP tool execution timeout after ${env.mcpExecutionTimeoutMs}ms`)), env.mcpExecutionTimeoutMs)
           );
 
-          const result = await Promise.race([callPromise(), timeoutPromise]);
-          if (result.hasTool) {
-            return new ToolMessage({
-              name: toolCall.name,
-              content: result.content!,
-              tool_call_id: toolCall.id!,
-            });
-          }
+          const content = await Promise.race([callPromise(), timeoutPromise]);
+          return new ToolMessage({
+            name: toolCall.name,
+            content,
+            tool_call_id: toolCall.id!,
+          });
         } catch (err) {
           logger.error(`Error invoking MCP server ${server.name} for tool ${toolCall.name}:`, err);
           if (transport) {
@@ -487,7 +491,7 @@ const callToolsNode = async (state: typeof MessagesAnnotation.State, config?: Ru
         }
       }
 
-      // If tool not found anywhere
+      // Tool not found in standard tools or any MCP server
       return new ToolMessage({
         name: toolCall.name,
         content: `Error: Tool "${toolCall.name}" not found or failed to execute.`,
@@ -634,7 +638,9 @@ export function streamAgentResponse(
           dbMessages.map(async (m) => {
             if (m.role === "user") {
               const mImages = m.images ? m.images.split(",") : undefined;
-              const content = await buildMessageContent(m.content, mImages, m.replyToText || undefined);
+              // Do not pass replyToText here — only inject the prefix for the live new message,
+              // not for historical messages during state sync.
+              const content = await buildMessageContent(m.content, mImages);
               return new HumanMessage({ content, id: m.id });
             } else {
               return new AIMessage({ content: m.content, id: m.id });
