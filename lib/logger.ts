@@ -28,8 +28,8 @@ export const logger = {
   warning(message: string): void {
     console.log(`${colors.WARNING}[WARNING]${RESET} [${getFormattedTime()}] ${message}`);
   },
-  error(message: string, error?: any): void {
-    const errorDetails = error ? ` (Details: ${error.message || String(error)})` : "";
+  error(message: string, error?: unknown): void {
+    const errorDetails = error ? ` (Details: ${error instanceof Error ? error.message : String(error)})` : "";
     console.error(`${colors.ERROR}[ERROR]${RESET} [${getFormattedTime()}] ${message}${errorDetails}`);
   },
 };

@@ -1,5 +1,8 @@
 import { getPrisma } from "../client";
 import { logger } from "../../logger";
+import fs from "fs/promises";
+import path from "path";
+import readEnv from "../../config";
 
 export interface DbSession {
   id: string;
@@ -47,6 +50,73 @@ export async function createSession(
 
 export async function deleteSession(id: string): Promise<void> {
   const prisma = getPrisma();
+  const env = readEnv();
+  const baseStorageDir = env.storagePath
+    ? path.resolve(env.storagePath)
+    : path.join(process.cwd(), "storage");
+
+  // Clean up associated image files on disk
+  try {
+    const messages = await prisma.message.findMany({
+      where: { sessionId: id },
+      select: { images: true, generatedImages: true },
+    });
+
+    const candidateFilenames = new Set<string>();
+    for (const msg of messages) {
+      if (msg.images) {
+        msg.images
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .forEach((url) => candidateFilenames.add(path.basename(url)));
+      }
+      if (msg.generatedImages) {
+        msg.generatedImages
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .forEach((url) => candidateFilenames.add(path.basename(url)));
+      }
+    }
+
+    if (candidateFilenames.size > 0) {
+      const otherMessages = await prisma.message.findMany({
+        where: { sessionId: { not: id } },
+        select: { images: true, generatedImages: true },
+      });
+      const retained = new Set<string>();
+      for (const msg of otherMessages) {
+        if (msg.images) {
+          msg.images
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean)
+            .forEach((url) => retained.add(path.basename(url)));
+        }
+        if (msg.generatedImages) {
+          msg.generatedImages
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean)
+            .forEach((url) => retained.add(path.basename(url)));
+        }
+      }
+
+      for (const filename of candidateFilenames) {
+        if (!retained.has(filename)) {
+          const uploadFile = path.join(baseStorageDir, "upload", filename);
+          const genFile = path.join(baseStorageDir, "generated", filename);
+          await fs.unlink(uploadFile).catch(() => {});
+          await fs.unlink(genFile).catch(() => {});
+          logger.info(`Removed session file: "${filename}"`);
+        }
+      }
+    }
+  } catch (err) {
+    logger.error(`Error cleaning up files for deleted session ${id}:`, err);
+  }
+
   await prisma.session.delete({
     where: { id },
   });

@@ -61,6 +61,9 @@ NEXT_PUBLIC_MAX_IMAGE_COUNT=5
 # Maximum size in MB of each uploaded image (default is 5)
 NEXT_PUBLIC_MAX_IMAGE_SIZE_MB=5
 
+# Base storage path for uploaded and generated images (default: storage)
+STORAGE_PATH="storage"
+
 # Project environment type
 ENV_TYPE="dev"
 

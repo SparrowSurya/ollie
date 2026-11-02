@@ -41,7 +41,13 @@ export async function generateImage(
       const baseStorageDir = env.storagePath 
         ? path.resolve(env.storagePath) 
         : path.join(process.cwd(), "storage");
-      const filePath = path.join(baseStorageDir, "upload", filename);
+      let filePath = path.join(baseStorageDir, "upload", filename);
+      try {
+        await fs.access(filePath);
+      } catch {
+        filePath = path.join(baseStorageDir, "generated", filename);
+        await fs.access(filePath);
+      }
       const fileBuffer = await fs.readFile(filePath);
       base64InputImage = fileBuffer.toString("base64");
       logger.info(`Successfully loaded and converted input image for generation: "${filename}"`);

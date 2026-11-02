@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { execSync } from "child_process";
 
 // Auto-detect based on env vars
 const dbUrl = process.env.DATABASE_URL || "file:./dev.db";
@@ -27,6 +28,19 @@ if (fs.existsSync(schemaPath)) {
       console.log(`[prepare-prisma] Updated database provider in schema.prisma to: "${provider}"`);
     } else {
       console.log(`[prepare-prisma] Database provider in schema.prisma is already: "${provider}"`);
+    }
+
+    if (provider === "sqlite") {
+      const dbFile = dbUrl.startsWith("file:") ? dbUrl.replace(/^file:/, "") : dbUrl;
+      const absDbPath = path.isAbsolute(dbFile) ? dbFile : path.join(process.cwd(), dbFile);
+      if (!fs.existsSync(absDbPath)) {
+        console.log(`[prepare-prisma] SQLite database not found at "${absDbPath}". Initializing tables...`);
+        try {
+          execSync("prisma db push --skip-generate", { stdio: "inherit" });
+        } catch {
+          console.warn("[prepare-prisma] Auto-initialization failed. Run 'bun run db:push' manually.");
+        }
+      }
     }
   } else {
     console.error("[prepare-prisma] Could not find datasource db block in schema.prisma");

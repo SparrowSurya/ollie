@@ -104,7 +104,13 @@ async function buildMessageContent(text: string, imageUrls?: string[], replyToTe
       const baseStorageDir = env.storagePath
         ? path.resolve(env.storagePath)
         : path.join(process.cwd(), "storage");
-      const filePath = path.join(baseStorageDir, "upload", filename);
+      let filePath = path.join(baseStorageDir, "upload", filename);
+      try {
+        await fs.access(filePath);
+      } catch {
+        filePath = path.join(baseStorageDir, "generated", filename);
+        await fs.access(filePath);
+      }
 
       const fileBuffer = await fs.readFile(filePath);
       const ext = path.extname(filename).toLowerCase();
